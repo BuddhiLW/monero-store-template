@@ -1,0 +1,206 @@
+;; The store's design contract. THIS FILE IS THE SOURCE; every stylesheet in
+;; resources/public/css is generated from it by `bb tokens` and must not be
+;; edited by hand.
+;;
+;; Shape (the same contract a3f/design-tokens uses, so a deployment can point
+;; TOKENS_FILE at its own tokens.json instead of forking this one):
+;;
+;;   :color      primitive palettes — the only place a literal colour appears
+;;   :scale      spacing, radii, type, shadow — same alias rules as colour
+;;   :semantic   product ROLES, as aliases into the primitives: "{color.neutral.900}"
+;;   :schemes    per-scheme overrides of those roles (dark, high-contrast, …)
+;;   :contrast   pairs that MUST meet a WCAG ratio; the build fails if they do not
+;;
+;; A role is what the stylesheet is allowed to name. Rebranding is editing
+;; :color and :semantic; it is never editing a rule.
+
+{:meta {:name "monero-store"
+        :prefix "store"
+        :description "White-label storefront contract. Monero orange over a neutral scale."}
+
+ :color
+ {:brand {:$description "Monero orange. The one saturated colour in the system."
+          :50 "#fff4ed"
+          :100 "#ffe4d3"
+          :200 "#ffc7a8"
+          :300 "#ffa270"
+          :400 "#ff7a3a"
+          :500 "#f26822"
+          :600 "#d94f0d"
+          :700 "#a83c0a"
+          :800 "#8a3210"
+          :900 "#702a11"
+          :950 "#3f1206"}
+
+  :neutral {:$description "Surfaces, borders, and text."
+            :0 "#ffffff"
+            :50 "#f8f9fa"
+            :100 "#f1f3f5"
+            :200 "#e6e9ed"
+            :300 "#d3d8de"
+            :400 "#a4acb8"
+            :500 "#767e8c"
+            :600 "#5b6270"
+            :700 "#3d444f"
+            :800 "#262b33"
+            :900 "#16181d"
+            :950 "#0c0e11"
+            :1000 "#000000"}
+
+  :success {:$description "Paid, confirmed, settled."
+            :100 "#d7f2e3"
+            :300 "#7fd0a6"
+            :500 "#2e9e68"
+            :700 "#1a6b45"
+            :900 "#0d3b26"}
+
+  :warning {:$description "Waiting, partly paid — a state that needs a human eye."
+            :100 "#fdeecd"
+            :300 "#f3c669"
+            :500 "#c98a12"
+            :700 "#87590a"
+            :900 "#4a3105"}
+
+  :danger {:$description "Failed, expired, refused."
+           :100 "#fbdedc"
+           :300 "#f0a09a"
+           :500 "#d63b30"
+           :700 "#96251d"
+           :900 "#54120e"}}
+
+ :scale
+ {:space {:0 "0"
+          :1 "0.25rem"
+          :2 "0.5rem"
+          :3 "0.75rem"
+          :4 "1rem"
+          :5 "1.5rem"
+          :6 "2rem"
+          :7 "3rem"}
+  :radius {:sm "0.25rem"
+           :md "0.4rem"
+           :lg "0.6rem"
+           :pill "999px"}
+  :font {:sans "ui-sans-serif, system-ui, -apple-system, \"Segoe UI\", sans-serif"
+         :mono "ui-monospace, SFMono-Regular, \"SF Mono\", Menlo, monospace"}
+  :text {:sm "0.85rem"
+         :base "1rem"
+         :lg "1.15rem"
+         :xl "1.5rem"
+         :display "1.75rem"}
+  :leading {:tight "1.25"
+            :normal "1.55"}
+  :width {:page "62rem"
+          :card "17rem"}
+  :border {:hairline "1px"}}
+
+ ;; ---------------------------------------------------------------------------
+ ;; Roles. The stylesheet names these and nothing below them.
+
+ :semantic
+ {:color {:background "{color.neutral.50}"
+          :surface "{color.neutral.0}"
+          :surface-sunken "{color.neutral.100}"
+          :text "{color.neutral.900}"
+          :text-muted "{color.neutral.600}"
+          :text-inverse "{color.neutral.0}"
+          :border "{color.neutral.200}"
+          :border-strong "{color.neutral.300}"
+          :focus "{color.brand.600}"
+          :accent "{color.brand.700}"
+          :accent-hover "{color.brand.800}"
+          :accent-foreground "{color.neutral.0}"
+          :paid "{color.success.700}"
+          :paid-surface "{color.success.100}"
+          :awaiting "{color.warning.700}"
+          :awaiting-surface "{color.warning.100}"
+          :failed "{color.danger.700}"
+          :failed-surface "{color.danger.100}"}
+
+  ;; Spacing is a role too. A rule naming `{scale.space.4}` would be naming a
+  ;; step on a ladder; naming `space.gutter` says what the space is for, and
+  ;; re-runging the ladder then stays a token edit.
+  :space {:tight "{scale.space.1}"
+          :inline "{scale.space.2}"
+          :gutter "{scale.space.4}"
+          :block "{scale.space.5}"
+          :section "{scale.space.6}"
+          :page "{scale.space.7}"}
+
+  :size {:page-width "{scale.width.page}"
+         :card-width "{scale.width.card}"
+         :radius "{scale.radius.md}"
+         :radius-large "{scale.radius.lg}"
+         :hairline "{scale.border.hairline}"}
+
+  :type {:family "{scale.font.sans}"
+         :family-mono "{scale.font.mono}"
+         :body "{scale.text.base}"
+         :small "{scale.text.sm}"
+         :heading "{scale.text.lg}"
+         :display "{scale.text.display}"
+         :leading "{scale.leading.normal}"}}
+
+ ;; Overrides only. A role a scheme does not mention keeps its default, so a
+ ;; new role cannot be forgotten in dark mode — it is inherited, and the
+ ;; contrast check tells you if that was wrong.
+ :schemes
+ {:dark {:$description "Rendered when the reader asks for it, or [data-theme=dark]."
+         :color {:background "{color.neutral.950}"
+                 :surface "{color.neutral.900}"
+                 :surface-sunken "{color.neutral.950}"
+                 :text "{color.neutral.50}"
+                 :text-muted "{color.neutral.400}"
+                 :text-inverse "{color.neutral.950}"
+                 :border "{color.neutral.800}"
+                 :border-strong "{color.neutral.700}"
+                 :focus "{color.brand.400}"
+                 :accent "{color.brand.400}"
+                 :accent-hover "{color.brand.300}"
+                 :accent-foreground "{color.neutral.950}"
+                 :paid "{color.success.300}"
+                 :paid-surface "{color.success.900}"
+                 :awaiting "{color.warning.300}"
+                 :awaiting-surface "{color.warning.900}"
+                 :failed "{color.danger.300}"
+                 :failed-surface "{color.danger.900}"}}}
+
+ ;; ---------------------------------------------------------------------------
+ ;; Experiments live in the token contract, not in a script.
+ ;;
+ ;; An arm overrides ONE role behind ONE attribute. Every arm ships in the
+ ;; stylesheet, so assigning one is setting `data-store-cta` on <html> — no
+ ;; second round trip, no flash of the losing design, and no way to ship an arm
+ ;; that fails the contrast gate below, because the arms are checked too.
+ ;;
+ ;; A variant may state one value, or a value per scheme: an accent read
+ ;; against a foreground that flips between light and dark has to flip with it.
+
+ :experiments
+ {:cta-color {:$description "Which accent the pay button wears."
+              :attribute "data-store-cta"
+              :target "semantic.color.accent"
+              :default "brand"
+              :contrast-with "semantic.color.accent-foreground"
+              :minimum 4.5
+              :variants {:brand {:default "{color.brand.700}" :dark "{color.brand.400}"}
+                         :deep {:default "{color.brand.800}" :dark "{color.brand.300}"}
+                         :ink {:default "{color.neutral.800}" :dark "{color.neutral.200}"}}}}
+
+ ;; ---------------------------------------------------------------------------
+ ;; What the build refuses to ship. A payment page nobody can read is a defect,
+ ;; not a matter of taste — so these are checked, in every scheme, at build time.
+
+ :contrast
+ [{:foreground "semantic.color.text" :background "semantic.color.background" :minimum 4.5}
+  {:foreground "semantic.color.text" :background "semantic.color.surface" :minimum 4.5}
+  {:foreground "semantic.color.text-muted" :background "semantic.color.surface" :minimum 4.5}
+  {:foreground "semantic.color.text-muted" :background "semantic.color.background" :minimum 4.5}
+  {:foreground "semantic.color.accent-foreground" :background "semantic.color.accent" :minimum 4.5}
+  {:foreground "semantic.color.accent" :background "semantic.color.surface" :minimum 3.0}
+  {:foreground "semantic.color.paid" :background "semantic.color.surface" :minimum 3.0}
+  {:foreground "semantic.color.paid" :background "semantic.color.paid-surface" :minimum 3.0}
+  {:foreground "semantic.color.awaiting" :background "semantic.color.surface" :minimum 3.0}
+  {:foreground "semantic.color.awaiting" :background "semantic.color.awaiting-surface" :minimum 3.0}
+  {:foreground "semantic.color.failed" :background "semantic.color.surface" :minimum 3.0}
+  {:foreground "semantic.color.failed" :background "semantic.color.failed-surface" :minimum 3.0}]}

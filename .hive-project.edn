@@ -1,0 +1,7 @@
+{:project-id "monero-store-template"
+ :parent "PP"
+ :description "White-label Monero-first payment application: provider-agnostic rails (Monero, Stripe, manual) behind one port."
+ :language :clojure
+ :nrepl-port 7930
+ :tags ["payments" "monero" "white-label" "template" "cppb" "ddd"] 
+ :carto {:source-roots ["adapters/jdbc/src" "adapters/monero-rpc/src" "adapters/stripe/src" "dev" "resources" "src" "test" "ui/src"]}}

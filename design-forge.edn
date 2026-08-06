@@ -1,0 +1,21 @@
+;; What the design pipeline builds. Run it with `bb tokens`.
+;;
+;; The pipeline itself is design-forge; this file and `tokens.edn` and
+;; `src/monero_store/design/theme.clj` are all this project owns of it — the
+;; contract, the rules, and where the output goes.
+
+{:tokens "tokens.edn"
+ :regenerate "bb tokens"
+ :outputs
+ [{:target :tokens-css
+   :path "resources/public/css/tokens.css"
+   :title "monero-store — tokens"}
+
+  {:target :stylesheet
+   :path "resources/public/css/store.css"
+   :title "monero-store — storefront"
+   :rules monero-store.design.theme/stylesheet}
+
+  {:target :cljs
+   :path "ui/generated/monero_store_ui/tokens.cljs"
+   :ns monero-store-ui.tokens}]}

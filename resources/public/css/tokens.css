@@ -1,0 +1,204 @@
+/*!
+ * monero-store — tokens
+ * AUTO-GENERATED — DO NOT EDIT.
+ * Source: tokens.edn
+ * Regenerate: bb tokens
+ */
+:root {
+  --store-ref-color-brand-100: #ffe4d3;
+  --store-ref-color-brand-200: #ffc7a8;
+  --store-ref-color-brand-300: #ffa270;
+  --store-ref-color-brand-400: #ff7a3a;
+  --store-ref-color-brand-50: #fff4ed;
+  --store-ref-color-brand-500: #f26822;
+  --store-ref-color-brand-600: #d94f0d;
+  --store-ref-color-brand-700: #a83c0a;
+  --store-ref-color-brand-800: #8a3210;
+  --store-ref-color-brand-900: #702a11;
+  --store-ref-color-brand-950: #3f1206;
+  --store-ref-color-danger-100: #fbdedc;
+  --store-ref-color-danger-300: #f0a09a;
+  --store-ref-color-danger-500: #d63b30;
+  --store-ref-color-danger-700: #96251d;
+  --store-ref-color-danger-900: #54120e;
+  --store-ref-color-neutral-0: #ffffff;
+  --store-ref-color-neutral-100: #f1f3f5;
+  --store-ref-color-neutral-1000: #000000;
+  --store-ref-color-neutral-200: #e6e9ed;
+  --store-ref-color-neutral-300: #d3d8de;
+  --store-ref-color-neutral-400: #a4acb8;
+  --store-ref-color-neutral-50: #f8f9fa;
+  --store-ref-color-neutral-500: #767e8c;
+  --store-ref-color-neutral-600: #5b6270;
+  --store-ref-color-neutral-700: #3d444f;
+  --store-ref-color-neutral-800: #262b33;
+  --store-ref-color-neutral-900: #16181d;
+  --store-ref-color-neutral-950: #0c0e11;
+  --store-ref-color-success-100: #d7f2e3;
+  --store-ref-color-success-300: #7fd0a6;
+  --store-ref-color-success-500: #2e9e68;
+  --store-ref-color-success-700: #1a6b45;
+  --store-ref-color-success-900: #0d3b26;
+  --store-ref-color-warning-100: #fdeecd;
+  --store-ref-color-warning-300: #f3c669;
+  --store-ref-color-warning-500: #c98a12;
+  --store-ref-color-warning-700: #87590a;
+  --store-ref-color-warning-900: #4a3105;
+  --store-ref-scale-border-hairline: 1px;
+  --store-ref-scale-font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  --store-ref-scale-font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --store-ref-scale-leading-normal: 1.55;
+  --store-ref-scale-leading-tight: 1.25;
+  --store-ref-scale-radius-lg: 0.6rem;
+  --store-ref-scale-radius-md: 0.4rem;
+  --store-ref-scale-radius-pill: 999px;
+  --store-ref-scale-radius-sm: 0.25rem;
+  --store-ref-scale-space-0: 0;
+  --store-ref-scale-space-1: 0.25rem;
+  --store-ref-scale-space-2: 0.5rem;
+  --store-ref-scale-space-3: 0.75rem;
+  --store-ref-scale-space-4: 1rem;
+  --store-ref-scale-space-5: 1.5rem;
+  --store-ref-scale-space-6: 2rem;
+  --store-ref-scale-space-7: 3rem;
+  --store-ref-scale-text-base: 1rem;
+  --store-ref-scale-text-display: 1.75rem;
+  --store-ref-scale-text-lg: 1.15rem;
+  --store-ref-scale-text-sm: 0.85rem;
+  --store-ref-scale-text-xl: 1.5rem;
+  --store-ref-scale-width-card: 17rem;
+  --store-ref-scale-width-page: 62rem;
+}
+
+:root {
+  --store-color-accent: #a83c0a;
+  --store-color-accent-foreground: #ffffff;
+  --store-color-accent-hover: #8a3210;
+  --store-color-awaiting: #87590a;
+  --store-color-awaiting-surface: #fdeecd;
+  --store-color-background: #f8f9fa;
+  --store-color-border: #e6e9ed;
+  --store-color-border-strong: #d3d8de;
+  --store-color-failed: #96251d;
+  --store-color-failed-surface: #fbdedc;
+  --store-color-focus: #d94f0d;
+  --store-color-paid: #1a6b45;
+  --store-color-paid-surface: #d7f2e3;
+  --store-color-surface: #ffffff;
+  --store-color-surface-sunken: #f1f3f5;
+  --store-color-text: #16181d;
+  --store-color-text-inverse: #ffffff;
+  --store-color-text-muted: #5b6270;
+  --store-size-card-width: 17rem;
+  --store-size-hairline: 1px;
+  --store-size-page-width: 62rem;
+  --store-size-radius: 0.4rem;
+  --store-size-radius-large: 0.6rem;
+  --store-space-block: 1.5rem;
+  --store-space-gutter: 1rem;
+  --store-space-inline: 0.5rem;
+  --store-space-page: 3rem;
+  --store-space-section: 2rem;
+  --store-space-tight: 0.25rem;
+  --store-type-body: 1rem;
+  --store-type-display: 1.75rem;
+  --store-type-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --store-type-family-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  --store-type-heading: 1.15rem;
+  --store-type-leading: 1.55;
+  --store-type-small: 0.85rem;
+}
+
+@media (prefers-color-scheme: dark) {
+
+:root:not([data-theme="light"]) {
+    --store-color-accent: #ff7a3a;
+    --store-color-accent-foreground: #0c0e11;
+    --store-color-accent-hover: #ffa270;
+    --store-color-awaiting: #f3c669;
+    --store-color-awaiting-surface: #4a3105;
+    --store-color-background: #0c0e11;
+    --store-color-border: #262b33;
+    --store-color-border-strong: #3d444f;
+    --store-color-failed: #f0a09a;
+    --store-color-failed-surface: #54120e;
+    --store-color-focus: #ff7a3a;
+    --store-color-paid: #7fd0a6;
+    --store-color-paid-surface: #0d3b26;
+    --store-color-surface: #16181d;
+    --store-color-surface-sunken: #0c0e11;
+    --store-color-text: #f8f9fa;
+    --store-color-text-inverse: #0c0e11;
+    --store-color-text-muted: #a4acb8;
+  }
+
+}
+
+:root[data-theme="dark"] {
+  --store-color-accent: #ff7a3a;
+  --store-color-accent-foreground: #0c0e11;
+  --store-color-accent-hover: #ffa270;
+  --store-color-awaiting: #f3c669;
+  --store-color-awaiting-surface: #4a3105;
+  --store-color-background: #0c0e11;
+  --store-color-border: #262b33;
+  --store-color-border-strong: #3d444f;
+  --store-color-failed: #f0a09a;
+  --store-color-failed-surface: #54120e;
+  --store-color-focus: #ff7a3a;
+  --store-color-paid: #7fd0a6;
+  --store-color-paid-surface: #0d3b26;
+  --store-color-surface: #16181d;
+  --store-color-surface-sunken: #0c0e11;
+  --store-color-text: #f8f9fa;
+  --store-color-text-inverse: #0c0e11;
+  --store-color-text-muted: #a4acb8;
+}
+
+:root[data-store-cta="brand"] {
+  --store-color-accent: #a83c0a;
+}
+
+@media (prefers-color-scheme: dark) {
+
+:root:not([data-theme="light"])[data-store-cta="brand"] {
+    --store-color-accent: #ff7a3a;
+  }
+
+}
+
+:root[data-theme="dark"][data-store-cta="brand"] {
+  --store-color-accent: #ff7a3a;
+}
+
+:root[data-store-cta="deep"] {
+  --store-color-accent: #8a3210;
+}
+
+@media (prefers-color-scheme: dark) {
+
+:root:not([data-theme="light"])[data-store-cta="deep"] {
+    --store-color-accent: #ffa270;
+  }
+
+}
+
+:root[data-theme="dark"][data-store-cta="deep"] {
+  --store-color-accent: #ffa270;
+}
+
+:root[data-store-cta="ink"] {
+  --store-color-accent: #262b33;
+}
+
+@media (prefers-color-scheme: dark) {
+
+:root:not([data-theme="light"])[data-store-cta="ink"] {
+    --store-color-accent: #e6e9ed;
+  }
+
+}
+
+:root[data-theme="dark"][data-store-cta="ink"] {
+  --store-color-accent: #e6e9ed;
+}

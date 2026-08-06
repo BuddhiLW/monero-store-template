@@ -1,0 +1,30 @@
+;; What this store sells. Loaded by CATALOG_FILE at boot, validated against
+;; schema/Item — an item priced in a currency no rail settles, or with a
+;; negative amount, fails here rather than at a customer.
+;;
+;; :money/amount is minor units at :money/scale decimal places: 9900 at scale 2
+;; is 99.00. :item/period is :once, :monthly or :yearly.
+;; :item/listed? false keeps an item sellable but unadvertised — an operator
+;; can open one, and knowing its id buys nobody anything.
+
+[{:item/id :support
+  :item/name "Support"
+  :item/blurb "One month of support, billed monthly."
+  :item/price {:money/amount 900 :money/currency :usd :money/scale 2}
+  :item/period :monthly
+  :item/listed? true}
+
+ {:item/id :pro
+  :item/name "Pro"
+  :item/blurb "Everything, for a year."
+  :item/price {:money/amount 9900 :money/currency :usd :money/scale 2}
+  :item/period :yearly
+  :item/listed? true
+  :item/metadata {:tier :pro}}
+
+ {:item/id :smoke-test
+  :item/name "Smoke test"
+  :item/blurb "The smallest real charge, for exercising a live rail."
+  :item/price {:money/amount 100 :money/currency :usd :money/scale 2}
+  :item/period :once
+  :item/listed? false}]

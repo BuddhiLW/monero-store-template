@@ -1,0 +1,88 @@
+{;; The core carries NO payment-provider SDK. Every SDK-backed adapter lives on
+ ;; its own source root behind its own alias, so a deployment pays only for the
+ ;; rails it actually runs.
+ :paths ["src" "resources"]
+
+ :deps {org.clojure/clojure {:mvn/version "1.12.1"}
+
+        ;; malli — value objects, m/=> contract spine, schema-driven tests.
+        metosin/malli {:mvn/version "0.20.1"}
+
+        ;; reitit + ring + aleph — the http boundary.
+        metosin/reitit {:mvn/version "0.10.1"}
+        metosin/reitit-ring {:mvn/version "0.10.1"}
+        ring/ring-core {:mvn/version "1.14.2"}
+        aleph/aleph {:mvn/version "0.9.10"}
+
+        ;; hato — upstream http client (rate tickers, MoneroPay).
+        hato/hato {:mvn/version "1.0.0"}
+
+        ;; jsonista — wire encoding.
+        metosin/jsonista {:mvn/version "0.3.13"}
+
+        ;; hiccup — the SPA shell is DATA, so the server merges an experiment
+        ;; assignment into a map instead of rewriting a document with a regex.
+        hiccup/hiccup {:mvn/version "2.0.0-RC5"}
+
+        ;; timbre — logging.
+        com.taoensso/timbre {:mvn/version "6.6.1"}}
+
+ :aliases
+ {;; ------------------------------------------------------------------ rails
+  ;; monero-wallet-rpc: the store runs its own wallet.
+  :monero-rpc {:extra-paths ["adapters/monero-rpc/src"]
+               :extra-deps {io.github.woodser/monero-java {:mvn/version "0.8.50"}}}
+
+  ;; stripe: hosted card checkout.
+  :stripe {:extra-paths ["adapters/stripe/src"]
+           :extra-deps {com.stripe/stripe-java {:mvn/version "33.2.0"}}}
+
+  ;; postgres-backed order store.
+  :jdbc {:extra-paths ["adapters/jdbc/src"]
+         :extra-deps {com.github.seancorfield/next.jdbc {:mvn/version "1.3.1002"}
+                      org.postgresql/postgresql {:mvn/version "42.7.7"}
+                      com.zaxxer/HikariCP {:mvn/version "6.3.0"}}}
+
+  ;; ------------------------------------------------------------------ design
+  ;; The stylesheet pipeline is design-forge; this project owns only the
+  ;; contract (tokens.edn), the rules (design/theme.clj) and design-forge.edn.
+  ;;
+  ;; design-forge is not on Clojars yet, so its coordinate lives in the
+  ;; untracked local.deps.edn and `bb tokens` runs
+  ;;   clj -Sdeps "$(cat local.deps.edn)" -M:design
+  ;; Nothing under src/ requires it: `system` resolves the token reader lazily,
+  ;; so a cold `clojure -M:test` needs no override.
+  :design {:extra-paths ["src"]
+           :main-opts ["-m" "design-forge.main"]}
+
+  ;; ------------------------------------------------------------------ ui
+  ;; The storefront. Kept out of :dev so a backend-only deployment never
+  ;; resolves a ClojureScript toolchain it does not run.
+  :cljs {:extra-paths ["ui/src"]
+         :extra-deps {thheller/shadow-cljs {:mvn/version "3.4.0"}
+                      reagent/reagent {:mvn/version "1.3.0"}}}
+
+  ;; ------------------------------------------------------------------ dev
+  :dev {:extra-paths ["dev" "test" "ui/src"]
+        :extra-deps {org.clojure/test.check {:mvn/version "1.1.1"}
+                     org.clojure/tools.namespace {:mvn/version "1.5.0"}
+                     nrepl/nrepl {:mvn/version "1.3.1"}}}
+
+  :test {:extra-paths ["test"]
+         :extra-deps {io.github.cognitect-labs/test-runner
+                      {:git/tag "v0.5.1" :git/sha "dfb30dd"}
+                      org.clojure/test.check {:mvn/version "1.1.1"}}
+         :main-opts ["-m" "cognitect.test-runner"]
+         :exec-fn cognitect.test-runner.api/test}
+
+  :nrepl {:extra-paths ["dev" "test" "ui/src"]
+          :extra-deps {org.clojure/test.check {:mvn/version "1.1.1"}
+                       org.clojure/tools.namespace {:mvn/version "1.5.0"}
+                       nrepl/nrepl {:mvn/version "1.3.1"}
+                       cider/cider-nrepl {:mvn/version "0.50.2"}}
+          :main-opts ["-m" "nrepl.cmdline"
+                      "--middleware" "[cider.nrepl/cider-middleware]"
+                      "--port" "7930"]}
+
+  :build {:deps {io.github.clojure/tools.build {:mvn/version "0.10.9"}}
+          :ns-default build}}}

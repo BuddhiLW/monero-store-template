@@ -1,0 +1,13 @@
+{
+  "name": "monero-store-template-ui",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Storefront for the monero-store template. Compiled by shadow-cljs; react is the only npm dependency.",
+  "devDependencies": {
+    "shadow-cljs": "^3.4.0"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  }
+}

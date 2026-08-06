@@ -1,0 +1,79 @@
+# A whole store: postgres, a Monero wallet watching on its behalf, and the app.
+#
+# Pointed at STAGENET on purpose. Before you change that, understand what is on
+# the moneropay-data volume: the wallet MoneroPay opens is yours, its keys live
+# there, and a lost volume is lost money. Back it up like a wallet, because it
+# is one.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: store
+      POSTGRES_USER: store
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD:?set DATABASE_PASSWORD in .env}
+    volumes: ["postgres-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U store"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  monerod:
+    image: sethsimmons/simple-monerod:latest
+    command: >
+      --stagenet
+      --rpc-bind-ip=0.0.0.0 --rpc-bind-port=38081 --confirm-external-bind
+      --non-interactive --prune-blockchain
+    volumes: ["monerod-data:/home/monero/.bitmonero"]
+
+  moneropay:
+    image: ghcr.io/moneropay/moneropay:v0.13.0
+    depends_on:
+      postgres: {condition: service_healthy}
+      monerod: {condition: service_started}
+    environment:
+      MONEROPAY_WALLET_RPC_ADDRESS: http://wallet-rpc:38083/json_rpc
+      MONEROPAY_POSTGRES_URI: postgres://store:${DATABASE_PASSWORD}@postgres:5432/store?sslmode=disable
+      MONEROPAY_BIND: 0.0.0.0:5000
+      MONEROPAY_TRANSFER_MIXIN: "15"
+    volumes: ["moneropay-data:/data"]
+
+  wallet-rpc:
+    image: sethsimmons/simple-monero-wallet-rpc:latest
+    depends_on: [monerod]
+    command: >
+      --stagenet
+      --daemon-address=monerod:38081
+      --rpc-bind-port=38083 --rpc-bind-ip=0.0.0.0 --confirm-external-bind
+      --disable-rpc-login --wallet-dir=/home/monero/wallet
+    volumes: ["moneropay-data:/home/monero/wallet"]
+
+  store:
+    build: .
+    depends_on:
+      postgres: {condition: service_healthy}
+    ports: ["8080:8080"]
+    environment:
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:8080}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:?set ADMIN_TOKEN in .env}
+      IDENTITY: ${IDENTITY:-none}
+      CATALOG_FILE: /app/catalog.edn
+      STORE_BACKEND: jdbc
+      DATABASE_URL: jdbc:postgresql://postgres:5432/store
+      DATABASE_USER: store
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      MONERO_BACKEND: moneropay
+      MONEROPAY_URL: http://moneropay:5000
+      MONERO_CALLBACK_SECRET: ${MONERO_CALLBACK_SECRET:?set MONERO_CALLBACK_SECRET in .env}
+      MONERO_MIN_CONFIRMATIONS: ${MONERO_MIN_CONFIRMATIONS:-10}
+      CARDS_BACKEND: ${CARDS_BACKEND:-none}
+      STRIPE_API_KEY: ${STRIPE_API_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+    volumes:
+      - ./catalog.example.edn:/app/catalog.edn:ro
+
+volumes:
+  postgres-data:
+  monerod-data:
+  moneropay-data:

@@ -1,0 +1,14 @@
+target/
+classes/
+.cpcache/
+.nrepl-port
+.shadow-cljs/
+node_modules/
+resources/public/js/
+local.deps.edn
+.env
+*.log
+.lsp/
+.clj-kondo/.cache/
+.clj-kondo/imports/
+.cpcache/
