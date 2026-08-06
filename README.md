@@ -13,7 +13,7 @@ drive the whole thing from without a daemon, a processor account, or a coin.
 clojure -M:nrepl   # then (go) — a live store on :8080, every rail faked
 bb ui:watch        # the storefront, compiled into what that store serves
 bb tokens          # tokens.edn -> the stylesheets
-bb test            # 87 tests here, plus design-forge's own 27
+bb test            # 93 tests here, plus design-forge’s own 35
 ```
 
 ## What it is for

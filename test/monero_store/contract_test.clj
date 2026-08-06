@@ -12,6 +12,7 @@
             [monero-store.collect.analytics :as analytics]
             [monero-store.currency :as currency]
             [monero-store.payments.chain]
+            [monero-store.promote.invoice :as invoice]
             [monero-store.promote.quote :as quote]
             [monero-store.schema :as schema]))
 
@@ -157,6 +158,74 @@
                      (reduce + 0 (map :transfer/amount honest))))))
    :mutation true
    :num-tests 100})
+
+(def fixed-instant
+  "One clock reading, so a generated rate is fresh by construction and the
+  property is about agreement rather than about staleness."
+  (java.util.Date. 1700000000000))
+
+(def agreeing-profile
+  {:quote/min-sources 2
+   :quote/max-age-ms 3600000
+   :quote/max-spread-bps 5000})
+
+(hst/deftrifecta-from-schema consensus-never-invents-a-price
+  monero-store.promote.quote/consensus
+  {:in [:cat
+        [:enum {} agreeing-profile]
+        [:sequential {:min 2 :max 6}
+         [:map {:closed true}
+          [:rate/source [:enum :alpha :beta :gamma :delta]]
+          [:rate/pair [:enum {} [:xmr :usd]]]
+          [:rate/price [:double {:min 100.0 :max 110.0}]]
+          [:rate/as-of [:enum {} fixed-instant]]]]
+        [:enum {} [:xmr :usd]]
+        [:enum {} fixed-instant]]
+   :out [:map {:closed true}
+         [:rate/price number?]
+         [:rate/sources [:vector :keyword]]]
+   :rel (fn [[_ rates _ _] out]
+          (let [prices (map :rate/price rates)]
+            (and (<= (apply min prices) (:rate/price out) (apply max prices))
+                 (<= 2 (count (:rate/sources out)))
+                 (every? (set (map :rate/source rates)) (:rate/sources out)))))
+   :mutation true
+   :num-tests 200})
+
+(def GeneratedInvoice
+  "An invoice, GENERATED.
+
+  `schema/Invoice` is the contract and validates one; it cannot generate one,
+  because `Instant` is `[:fn inst?]` and a predicate has no generator. So this
+  is a tuple of the two things the property varies — the status, and how far
+  the expiry sits either side of the clock — fmapped into a real invoice. The
+  value handed to the subject still satisfies `schema/Invoice`, which the live
+  instrumentation checks on every call."
+  [:tuple {:gen/fmap (fn [[status offset-ms]]
+                       {:invoice/id (random-uuid)
+                        :invoice/customer-id (random-uuid)
+                        :invoice/item-id :pro
+                        :invoice/provider :monero
+                        :invoice/status status
+                        :invoice/amount 1000
+                        :invoice/currency :xmr
+                        :invoice/external-ref nil
+                        :invoice/expires-at (java.util.Date.
+                                             (+ (.getTime fixed-instant) offset-ms))
+                        :invoice/created-at fixed-instant})}
+   [:enum :pending :paid :underpaid :expired :failed]
+   [:int {:min -600000 :max 600000}]])
+
+(hst/deftrifecta-from-schema money-is-never-applied-to-a-closed-invoice
+  monero-store.promote.invoice/resolution
+  {:in [:cat GeneratedInvoice [:enum {} fixed-instant]]
+   :out [:enum :applied :late]
+   :rel (fn [[invoice now] out]
+          (= out (if (and (invoice/open? invoice) (not (invoice/lapsed? invoice now)))
+                   :applied
+                   :late)))
+   :mutation false
+   :num-tests 200})
 
 (deftest a-forbidden-key-never-survives-scrubbing
   (testing "the property above generates keys at random; this states the ones that matter"
