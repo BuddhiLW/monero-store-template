@@ -173,7 +173,9 @@ coordinate** — a cold clone of this repo builds its own stylesheets with no
 local checkout and no untracked override file. Nothing under `src/` requires
 it: `system` resolves the token reader lazily, so a cold `clojure -M:test`
 never fetches it at all, and a deployment that ships the generated CSS without
-the pipeline still boots.
+the pipeline still boots. This repository is the worked example in
+[design-forge's own README][design-forge-example], which documents the wiring
+step by step.
 
 ```
 tokens.edn ──► resolve aliases ──► WCAG contrast gate ──► garden ──► tokens.css
@@ -253,6 +255,7 @@ type name rather than its contents.
 
 [garden]: https://github.com/noprompt/garden
 [design-forge]: https://github.com/BuddhiLW/design-forge
+[design-forge-example]: https://github.com/BuddhiLW/design-forge#a-project-that-uses-it
 [umami]: https://umami.is
 
 ## Configuration
