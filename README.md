@@ -168,11 +168,12 @@ turns them into CSS through [design-forge][design-forge], which renders with
 
 The pipeline itself is a separate library — this project owns only the
 contract, the rules, and `design-forge.edn` saying where the output goes.
-design-forge is not on Clojars yet, so its coordinate lives in the untracked
-`local.deps.edn` and the bb tasks pass `-Sdeps "$(cat local.deps.edn)"`.
-Nothing under `src/` requires it: `system` resolves the token reader lazily, so
-a cold `clojure -M:test` needs no override and a deployment that ships the
-generated CSS without the pipeline still boots.
+design-forge is not on Clojars yet, so the `:design` alias names its **git
+coordinate** — a cold clone of this repo builds its own stylesheets with no
+local checkout and no untracked override file. Nothing under `src/` requires
+it: `system` resolves the token reader lazily, so a cold `clojure -M:test`
+never fetches it at all, and a deployment that ships the generated CSS without
+the pipeline still boots.
 
 ```
 tokens.edn ──► resolve aliases ──► WCAG contrast gate ──► garden ──► tokens.css

@@ -4,13 +4,13 @@
 {:min-bb-version "1.3.0"
  :tasks
  {tokens {:doc "Generate stylesheets + the cljs token map from tokens.edn"
-          :task (shell "clojure" "-Sdeps" (slurp "local.deps.edn") "-M:design")}
+          :task (shell "clojure" "-M:design")}
 
   tokens:check {:doc "Fail if the generated artifacts have drifted from tokens.edn"
-                :task (shell "clojure" "-Sdeps" (slurp "local.deps.edn") "-M:design" "--check")}
+                :task (shell "clojure" "-M:design" "--check")}
 
   tokens:report {:doc "Print the contrast table for every pair, scheme and experiment arm"
-                 :task (shell "clojure" "-Sdeps" (slurp "local.deps.edn") "-M:design" "--report")}
+                 :task (shell "clojure" "-M:design" "--report")}
 
   ui {:doc "Compile the storefront"
       :task (shell "npx shadow-cljs release app")}

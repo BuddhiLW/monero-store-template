@@ -52,12 +52,15 @@
   ;; The stylesheet pipeline is design-forge; this project owns only the
   ;; contract (tokens.edn), the rules (design/theme.clj) and design-forge.edn.
   ;;
-  ;; design-forge is not on Clojars yet, so its coordinate lives in the
-  ;; untracked local.deps.edn and `bb tokens` runs
-  ;;   clj -Sdeps "$(cat local.deps.edn)" -M:design
-  ;; Nothing under src/ requires it: `system` resolves the token reader lazily,
-  ;; so a cold `clojure -M:test` needs no override.
+  ;; design-forge is not on Clojars yet, so this names its GIT coordinate: a
+  ;; cold clone of this repo builds its own stylesheets with no local checkout
+  ;; and no untracked override file. Nothing under src/ requires it — `system`
+  ;; resolves the token reader lazily — so a cold `clojure -M:test` never
+  ;; fetches it at all.
   :design {:extra-paths ["src"]
+           :extra-deps {io.github.buddhilw/design-forge
+                        {:git/url "https://github.com/BuddhiLW/design-forge"
+                         :git/sha "03809ec31fe9a36cf831dfae526e43d15b5a53d5"}}
            :main-opts ["-m" "design-forge.main"]}
 
   ;; ------------------------------------------------------------------ ui
