@@ -9,7 +9,8 @@
             [monero-store.payments.provider :as provider]
             [monero-store.pipeline.checkout :as checkout]
             [monero-store.promote.invoice :as invoice]
-            [taoensso.timbre :as log])
+            [taoensso.timbre :as log]
+            [malli.core :as m])
   (:import (java.util Date)
            (java.util.concurrent Executors ThreadFactory TimeUnit)))
 
@@ -80,3 +81,14 @@
                              (long interval-ms)
                              TimeUnit/MILLISECONDS)
     (fn [] (.shutdownNow executor))))
+
+;; ---------------------------------------------------------------------------
+;; contracts
+
+(m/=> reconcile! [:=> [:cat :map :map] [:maybe :keyword]])
+
+(m/=> expire-stale! [:=> [:cat :map] [:vector :uuid]])
+
+(m/=> sweep! [:=> [:cat :map] [:map-of :keyword :int]])
+
+(m/=> start! [:=> [:cat :map [:map [:interval-ms {:optional true} :int]]] ifn?])

@@ -10,7 +10,8 @@
   The experiments themselves come from `tokens.edn` — the same declaration the
   stylesheet is generated from — so an arm that exists at runtime is an arm
   that shipped its CSS and passed the contrast gate."
-  (:require [clojure.string :as str])
+  (:require [clojure.string :as str]
+            [malli.core :as m])
   (:import (java.nio.charset StandardCharsets)
            (java.security MessageDigest)))
 
@@ -79,3 +80,25 @@
                  :variant (some-> (get assignments experiment) name)
                  :variants (mapv name (sort (keys (:variants spec))))}]))
         experiments))
+
+;; ---------------------------------------------------------------------------
+;; contracts
+
+(m/=> digest [:=> [:cat :any] :int])
+
+(m/=> variant-for [:=> [:cat :keyword
+                        [:map [:variants {:optional true} [:maybe [:map-of :keyword :any]]]
+                              [:default {:optional true} [:maybe [:or :string :keyword]]]]
+                        [:maybe :string]]
+                   [:maybe :keyword]])
+
+(m/=> assign [:=> [:cat [:maybe [:map-of :keyword :map]] [:maybe :string]] [:map-of :keyword :keyword]])
+
+(m/=> attributes [:=> [:cat [:maybe [:map-of :keyword :map]] [:maybe [:map-of :keyword :keyword]]] [:map-of :string :string]])
+
+(m/=> attribute-string [:=> [:cat [:map-of :string :string]] :string])
+
+(m/=> describe [:=> [:cat [:maybe [:map-of :keyword :map]] [:maybe [:map-of :keyword :keyword]]]
+                [:map-of :string [:map [:attribute :any]
+                                       [:variant [:maybe :string]]
+                                       [:variants [:vector :string]]]]])

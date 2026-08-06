@@ -178,3 +178,22 @@
 (m/=> webhook-settleable? [:=> [:cat :map :keyword] :boolean])
 (m/=> pollable? [:=> [:cat :map :keyword] :boolean])
 (m/=> settlement-for [:=> [:cat :map schema/Invoice :map] [:maybe schema/Settlement]])
+
+(m/=> registry [:=> [:cat [:sequential [:map [:profile :map] [:rail :any]]]]
+                [:map-of :keyword [:map [:profile schema/ProviderProfile] [:rail :any]]]])
+
+(m/=> rail [:=> [:cat :map :keyword] :any])
+
+(m/=> ids [:=> [:cat :map] [:set :keyword]])
+
+(m/=> currency-of [:=> [:cat :map :keyword] [:maybe :keyword]])
+
+(m/=> currencies [:=> [:cat :map] [:set :keyword]])
+
+(m/=> webhook-rails [:=> [:cat :map] [:set :keyword]])
+
+(m/=> claimed-invoice-id [:=> [:cat :map :keyword :map] [:maybe :uuid]])
+
+(m/=> polled-settlement [:=> [:cat :map schema/Invoice] [:maybe schema/Settlement]])
+
+(m/=> resumed-handle [:=> [:cat :map schema/Invoice] [:maybe :map]])

@@ -332,3 +332,7 @@
              :currency currency})))
 
 (m/=> money [:=> [:cat :keyword [:int {:min 0}]] Money])
+
+(m/=> scale-agrees? [:=> [:cat :map] :boolean])
+
+(m/=> check! [:function [:=> [:cat :any :any] :any] [:=> [:cat :any :any [:maybe :map]] :any]])

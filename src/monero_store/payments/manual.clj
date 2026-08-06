@@ -7,7 +7,8 @@
   the invoice's own amount, so reaching it from the wire would be a way to be
   paid by asking. It is reachable only from an operator session."
   (:require [monero-store.payments.provider :as provider]
-            [monero-store.schema :as schema]))
+            [monero-store.schema :as schema]
+            [malli.core :as m]))
 
 (def profile
   {:provider/id :manual
@@ -58,3 +59,14 @@
   ([config]
    {:profile (merge profile (select-keys config (keys profile)))
     :rail (->rail)}))
+
+;; ---------------------------------------------------------------------------
+;; contracts
+
+(m/=> reference-of [:=> [:cat :map] :string])
+
+(m/=> ->rail [:=> :cat :any])
+
+(m/=> entry [:function
+             [:=> :cat [:map [:profile schema/ProviderProfile] [:rail :any]]]
+             [:=> [:cat [:maybe :map]] [:map [:profile schema/ProviderProfile] [:rail :any]]]])

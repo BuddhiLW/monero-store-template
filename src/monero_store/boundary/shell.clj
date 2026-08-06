@@ -12,7 +12,8 @@
   already contains every arm, so the first paint is the assigned design, with
   no script, no round trip, and no flash of the losing variant."
   (:require [clojure.string :as str]
-            [hiccup2.core :as hiccup]))
+            [hiccup2.core :as hiccup]
+            [malli.core :as m]))
 
 (def visitor-cookie "store_visitor")
 
@@ -79,3 +80,21 @@
   "The shell as a document. Escaping is hiccup's, not this namespace's."
   [options]
   (str "<!DOCTYPE html>\n" (hiccup/html (document options))))
+
+;; ---------------------------------------------------------------------------
+;; contracts
+
+(m/=> cookies-of [:=> [:cat :map] [:map-of :string :string]])
+
+(m/=> visitor-of [:=> [:cat :map] [:maybe :string]])
+
+(m/=> set-visitor-cookie [:=> [:cat :map [:maybe :string] :any] :map])
+
+(m/=> document [:=> [:cat [:map [:title {:optional true} :string]
+                              [:lang {:optional true} :string]
+                              [:attributes {:optional true} [:maybe :map]]
+                              [:stylesheets {:optional true} [:maybe [:sequential :string]]]
+                              [:scripts {:optional true} [:maybe [:sequential :string]]]]]
+              [:cat [:= :html] :map [:* :any]]])
+
+(m/=> render [:=> [:cat :map] :string])

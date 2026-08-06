@@ -143,3 +143,13 @@
 
 (m/=> settlement-of
       [:=> [:cat :keyword schema/WalletObservation [:int {:min 0}]] schema/Settlement])
+
+(m/=> observe-settlement [:=> [:cat :keyword :any :map] [:maybe schema/Settlement]])
+
+(m/=> notice-authentic? [:=> [:cat [:maybe :string] :map :map] :boolean])
+
+(m/=> ->rail [:=> [:cat [:map [:wallet :any]
+                             [:provider-id {:optional true} :keyword]
+                             [:callback-secret {:optional true} [:maybe :string]]]] :any])
+
+(m/=> entry [:=> [:cat :map] [:map [:profile schema/ProviderProfile] [:rail :any]]])

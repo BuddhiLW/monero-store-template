@@ -11,7 +11,8 @@
   status is."
   (:require [monero-store.collect.store :as store]
             [monero-store.payments.provider :as provider]
-            [monero-store.pipeline.checkout :as checkout]))
+            [monero-store.pipeline.checkout :as checkout]
+            [malli.core :as m]))
 
 (defn subject-invoice
   "The invoice `notice` is about, or nil.
@@ -48,3 +49,13 @@
           {:notice/verdict :notice/unknown-invoice})
         {:notice/verdict :notice/unauthenticated})
       {:notice/verdict :notice/unknown-invoice})))
+
+;; ---------------------------------------------------------------------------
+;; contracts
+
+(m/=> subject-invoice [:=> [:cat :map :keyword :map] [:maybe :map]])
+
+(m/=> apply-notice! [:=> [:cat :map :keyword :map]
+                     [:map [:notice/verdict [:enum :notice/applied :notice/unauthenticated :notice/unknown-invoice]]
+                           [:notice/outcome {:optional true} :keyword]
+                           [:notice/invoice-id {:optional true} :uuid]]])

@@ -8,7 +8,8 @@
 
   Nothing in this namespace is effectful, so the whole stylesheet can be
   rendered, diffed, and asserted on in a test."
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [malli.core :as m]))
 
 (def reset
   [[:comment "reset"]
@@ -196,3 +197,8 @@
               (map first)
               (mapcat #(str/split % #",\s*")))
         stylesheet))
+
+;; ---------------------------------------------------------------------------
+;; contracts
+
+(m/=> selectors [:=> :cat [:set :string]])

@@ -246,3 +246,21 @@
 (m/=> session-settlement
       [:=> [:cat :map :keyword :map :map] [:maybe schema/Settlement]])
 (m/=> currency-agrees? [:=> [:cat :any :map] :boolean])
+
+(m/=> event-type [:=> [:cat :map :map] [:maybe :string]])
+
+(m/=> event-object [:=> [:cat :map :map] [:maybe :map]])
+
+(m/=> event-amount [:=> [:cat :map [:maybe :map]] [:maybe :int]])
+
+(m/=> subject-of [:=> [:cat :map :map] [:maybe :uuid]])
+
+(m/=> event-matches-invoice? [:=> [:cat :map :map :map] :boolean])
+
+(m/=> checkout-of [:=> [:cat :any :map] [:maybe schema/CheckoutSession]])
+
+(m/=> settlement-ref [:=> [:cat :map :map :map] schema/NonBlank])
+
+(m/=> ->rail [:=> [:cat [:map [:gateway :any] [:reader {:optional true} :map]]] :any])
+
+(m/=> entry [:=> [:cat :map] [:map [:profile schema/ProviderProfile] [:rail :any]]])

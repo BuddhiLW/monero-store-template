@@ -5,7 +5,8 @@
   projection: keys are renamed and amounts are rendered for display, and
   anything the customer has no business seeing simply has no clause."
   (:require [monero-store.currency :as currency]
-            [monero-store.promote.invoice :as invoice]))
+            [monero-store.promote.invoice :as invoice]
+            [malli.core :as m]))
 
 (defn money
   [{:money/keys [amount currency] :as value}]
@@ -106,3 +107,30 @@
    :item (name item-id)
    :period-end period-end
    :granted-at granted-at})
+
+;; ---------------------------------------------------------------------------
+;; contracts
+;;
+;; Every projection is total on the shape it names and nil-tolerant where the
+;; domain admits absence, because a wire fn is the last thing between a value
+;; and a customer.
+
+(m/=> money [:=> [:cat [:maybe :map]] [:maybe [:map [:amount :any] [:currency :string] [:display :string]]]])
+
+(m/=> item [:function [:=> [:cat :map] :map] [:=> [:cat :map [:maybe [:or :map [:sequential :any]]]] :map]])
+
+(m/=> quoted [:=> [:cat :map] [:map [:rate :any] [:sources [:vector :string]]]])
+
+(m/=> provider [:=> [:cat :map] [:map [:id :string] [:currency :string]]])
+
+(m/=> invoice-view [:=> [:cat :map [:maybe :int]] [:map [:id :string] [:status :string]]])
+
+(m/=> handle [:=> [:cat :map] [:map [:provider :string]]])
+
+(m/=> payment [:=> [:cat :map] [:map [:id :string] [:invoice :string] [:resolution :string]]])
+
+(m/=> invoice-summary [:=> [:cat :map] [:map [:id :string] [:status :string] [:currency :string]]])
+
+(m/=> rate [:=> [:cat :map] [:map [:source :string] [:pair [:vector :string]]]])
+
+(m/=> fulfilment [:=> [:cat :map] [:map [:invoice :string] [:customer :string] [:item :string]]])

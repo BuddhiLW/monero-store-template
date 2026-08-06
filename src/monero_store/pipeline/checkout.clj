@@ -15,7 +15,9 @@
             [monero-store.promote.invoice :as invoice]
             [monero-store.promote.quote :as quotes]
             [taoensso.timbre :as log]
-            [monero-store.collect.analytics :as analytics])
+            [monero-store.collect.analytics :as analytics]
+            [malli.core :as m]
+            [monero-store.schema :as schema])
   (:import (java.util Calendar Date UUID)))
 
 (defn- period-end
@@ -246,3 +248,40 @@
         settlement (assoc (provider/interpret rail {} invoice)
                           :settlement/references [(str "operator:" reference)])]
     (settle! deps invoice settlement)))
+
+;; ---------------------------------------------------------------------------
+;; contracts
+;;
+;; `deps` is :map rather than a shape: it is the injection point, and naming
+;; every seam here would make adding one a change in two places.
+
+(m/=> period-end [:=> [:cat schema/Instant [:maybe :keyword]] [:maybe schema/Instant]])
+
+(m/=> priced [:=> [:cat :map schema/Item :keyword]
+              [:map [:money schema/Money] [:quote {:optional true} [:maybe schema/Quote]]]])
+
+(m/=> observation-reference [:=> [:cat schema/Settlement] [:maybe :string]])
+
+(m/=> record-observation! [:=> [:cat :any schema/Invoice schema/Settlement :keyword] [:maybe :map]])
+
+(m/=> open! [:=> [:cat :map [:map [:customer :map]
+                                  [:item-id :keyword]
+                                  [:provider-id :keyword]
+                                  [:visitor {:optional true} [:maybe :string]]
+                                  [:variants {:optional true} [:maybe :map]]]]
+             [:map [:invoice schema/Invoice] [:handle :map]]])
+
+(m/=> grant-for [:=> [:cat schema/Invoice [:maybe schema/Item] schema/Instant]
+                 [:map [:fulfilment/invoice-id :uuid]
+                       [:fulfilment/customer-id :uuid]
+                       [:fulfilment/item-id :keyword]
+                       [:fulfilment/period-end [:maybe schema/Instant]]]])
+
+(m/=> hand-over! [:=> [:cat :map schema/Invoice [:maybe schema/Item] schema/Instant] [:maybe :map]])
+
+(m/=> settle! [:=> [:cat :map schema/Invoice schema/Settlement] [:maybe schema/SettlementOutcome]])
+
+(m/=> grant! [:=> [:cat :map [:map [:customer :map]
+                                   [:item-id :keyword]
+                                   [:reference {:optional true} :any]]]
+              [:maybe schema/SettlementOutcome]])

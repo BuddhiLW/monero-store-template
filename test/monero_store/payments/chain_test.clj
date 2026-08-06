@@ -32,8 +32,7 @@
 (deftest a-double-spend-contributes-nothing
   (let [settled (chain/settlement-of :monero
                                      (observation [(transfer {})
-                                                   (transfer {:tx-hash "tx-2"
-                                                              :transfer/tx-hash "tx-2"
+                                                   (transfer {:transfer/tx-hash "tx-2"
                                                               :transfer/double-spend? true})])
                                      2000)]
     (is (= 1000 (:settlement/paid-amount settled)))

@@ -12,7 +12,8 @@
   the SDK is confined to the gateway adapter that opens sessions."
   (:require [clojure.string :as str]
             [malli.core :as m]
-            [monero-store.payments.hosted :as hosted])
+            [monero-store.payments.hosted :as hosted]
+            [monero-store.schema :as schema])
   (:import (java.nio.charset StandardCharsets)
            (java.security MessageDigest)
            (javax.crypto Mac)
@@ -132,3 +133,15 @@
 
 (m/=> parse-signature-header [:=> [:cat [:maybe :string]] [:maybe :map]])
 (m/=> signature-valid? [:=> [:cat :map [:maybe :string] [:maybe :string] [:maybe :int]] :boolean])
+
+(m/=> signed-payload [:=> [:cat :any :any] :string])
+
+(m/=> hmac-hex [:=> [:cat :any :any] :string])
+
+(m/=> constant-time= [:=> [:cat [:maybe :string] [:maybe :string]] [:maybe :boolean]])
+
+(m/=> reader [:=> [:cat [:map [:webhook-secret {:optional true} [:maybe :string]]
+                              [:webhook-tolerance-seconds {:optional true} [:maybe :int]]]]
+              [:map [:reader/subject-key :keyword] [:reader/authentic? ifn?]]])
+
+(m/=> entry [:=> [:cat :map] [:map [:profile schema/ProviderProfile] [:rail :any]]])

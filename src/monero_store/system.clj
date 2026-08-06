@@ -28,7 +28,9 @@
             [monero-store.pipeline.reconcile :as reconcile]
             [monero-store.promote.catalog :as catalog]
             [taoensso.timbre :as log]
-            [monero-store.collect.analytics :as analytics])
+            [monero-store.collect.analytics :as analytics]
+            [malli.core :as m]
+            [monero-store.schema :as schema])
   (:gen-class))
 
 (defn- env
@@ -295,3 +297,50 @@
   (let [system (start!)]
     (.addShutdownHook (Runtime/getRuntime) (Thread. ^Runnable #(stop! system)))
     @(promise)))
+
+;; ---------------------------------------------------------------------------
+;; contracts
+;;
+;; Every builder here answers the same question — given configuration, which
+;; implementation of a port does this deployment get — so each returns :any:
+;; the value is a reify, and a protocol is not a value schema.
+
+(m/=> env [:function [:=> [:cat :string] [:maybe :string]]
+                     [:=> [:cat :string [:maybe :string]] [:maybe :string]]])
+
+(m/=> env-flag [:=> [:cat :string] :boolean])
+
+(m/=> env-long [:=> [:cat :string :int] :int])
+
+(m/=> optional-fn [:=> [:cat qualified-symbol?] [:maybe ifn?]])
+
+(m/=> config [:=> :cat :map])
+
+(m/=> load-experiments [:=> [:cat [:map [:tokens-file {:optional true} [:maybe :string]]]]
+                        [:map-of :keyword :map]])
+
+(m/=> analytics-of [:=> [:cat :map :any] :any])
+
+(m/=> order-store [:=> [:cat :map] :any])
+
+(m/=> chain-wallet [:=> [:cat :map :any] [:maybe :any]])
+
+(m/=> card-gateway [:=> [:cat :map] [:maybe :any]])
+
+(m/=> rails [:=> [:cat :map :map] [:map-of :keyword :map]])
+
+(m/=> rates-feed [:=> [:cat :map :any] ifn?])
+
+(m/=> fulfilment-of [:=> [:cat [:maybe :keyword] :any] :any])
+
+(m/=> identify-fn-of [:=> [:cat [:maybe :keyword]] ifn?])
+
+(m/=> load-catalog! [:=> [:cat [:map [:catalog-file {:optional true} [:maybe :string]]]] [:vector schema/Item]])
+
+(m/=> start! [:function
+              [:=> :cat [:map [:server :any] [:deps :map] [:config :map]]]
+              [:=> [:cat [:maybe :map]] [:map [:server :any] [:deps :map] [:config :map]]]])
+
+(m/=> stop! [:=> [:cat [:maybe :map]] :any])
+
+(m/=> -main [:=> [:* :any] :any])

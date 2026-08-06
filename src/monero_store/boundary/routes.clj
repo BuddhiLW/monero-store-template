@@ -18,7 +18,9 @@
             [monero-store.promote.quote :as quotes]
             [reitit.ring :as ring]
             [monero-store.boundary.shell :as shell]
-            [monero-store.promote.experiments :as experiment])
+            [monero-store.promote.experiments :as experiment]
+            [malli.core :as m]
+            [monero-store.schema :as schema])
   (:import (java.util Date)
 [java.util UUID]))
 
@@ -329,3 +331,62 @@
     (ring/create-resource-handler {:path "/"})
     (spa-fallback deps)
     (ring/create-default-handler))))
+
+;; ---------------------------------------------------------------------------
+;; contracts
+;;
+;; A handler builder takes the dependency map and returns a function of a ring
+;; request. Naming the request shape here would be a fiction: what arrives is
+;; whatever the adapter and the middleware stack made of the socket.
+
+(def Response
+  "What every handler in this namespace returns."
+  [:map [:status :int] [:headers {:optional true} :map] [:body {:optional true} :any]])
+
+(m/=> json-response [:=> [:cat :int :any] Response])
+
+(m/=> raw-body [:=> [:cat :map] [:maybe :string]])
+
+(m/=> parse-json [:=> [:cat :any] :any])
+
+(m/=> read-json [:=> [:cat :map] :any])
+
+(m/=> now-of [:=> [:cat :map] schema/Instant])
+
+(m/=> received-at [:=> [:cat :map] :int])
+
+(m/=> caller [:=> [:cat :map :map] [:maybe :map]])
+
+(m/=> with-customer [:=> [:cat :map :map ifn?] Response])
+
+(m/=> with-operator [:=> [:cat :map :map ifn?] Response])
+
+(m/=> item-quotes [:=> [:cat :map schema/Item] [:map-of :string :map]])
+
+(m/=> catalog-handler [:=> [:cat :map] ifn?])
+
+(m/=> checkout-handler [:=> [:cat :map] ifn?])
+
+(m/=> config-handler [:=> [:cat :map] ifn?])
+
+(m/=> paid-so-far [:=> [:cat :any schema/Invoice] :int])
+
+(m/=> invoice-handler [:=> [:cat :map] ifn?])
+
+(m/=> my-invoices-handler [:=> [:cat :map] ifn?])
+
+(m/=> webhook-notice [:=> [:cat :map :map [:maybe :string]]
+                      [:map [:notice/raw-body [:maybe :string]]
+                            [:notice/payload :any]]])
+
+(m/=> webhook-handler [:=> [:cat :map] ifn?])
+
+(m/=> queue-handler [:=> [:cat :map] ifn?])
+
+(m/=> grant-handler [:=> [:cat :map] ifn?])
+
+(m/=> router [:=> [:cat :map] :any])
+
+(m/=> spa-fallback [:=> [:cat :map] ifn?])
+
+(m/=> handler [:=> [:cat :map] ifn?])

@@ -11,7 +11,8 @@
   need not be posted to an advertising network to be measured."
   (:require [clojure.string :as str]
             [monero-store.collect.http :as http]
-            [taoensso.timbre :as log]))
+            [taoensso.timbre :as log]
+            [malli.core :as m]))
 
 (defprotocol IAnalytics
   (track! [this event]
@@ -137,3 +138,28 @@
           (catch Throwable t
             (log/warn t "analytics unreachable" {:event (:event/name event)}))))
       nil)))
+
+;; ---------------------------------------------------------------------------
+;; contracts
+
+(m/=> scrub [:=> [:cat [:maybe [:map-of :any :any]]] [:map-of :keyword :any]])
+
+(m/=> event [:function
+             [:=> [:cat :keyword] [:map [:event/name :keyword] [:event/props :map]]]
+             [:=> [:cat :keyword [:maybe :map]] [:map [:event/name :keyword] [:event/props :map]]]])
+
+(m/=> noop [:=> :cat :any])
+
+(m/=> logging [:=> :cat :any])
+
+(m/=> memory [:=> :cat :any])
+
+(m/=> events [:=> [:cat :any] [:maybe [:sequential :map]]])
+
+(m/=> composite [:=> [:cat [:sequential :any]] :any])
+
+(m/=> umami-payload [:=> [:cat :map [:map [:event/name :keyword]]] [:map [:type :string] [:payload :map]]])
+
+(m/=> umami [:=> [:cat [:map [:client {:optional true} :any]
+                             [:base-url {:optional true} [:maybe :string]]
+                             [:website-id {:optional true} :any]]] :any])

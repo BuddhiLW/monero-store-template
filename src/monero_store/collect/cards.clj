@@ -80,3 +80,9 @@
 
 (m/=> pay! [:=> [:cat :any :any] schema/CheckoutSession])
 (m/=> expire! [:=> [:cat :any :any] schema/CheckoutSession])
+
+(m/=> fake-gateway [:function [:=> :cat :any] [:=> [:cat [:map [:base-url {:optional true} :string]]] :any]])
+
+(m/=> move [:=> [:cat :any :any ifn?] [:maybe :map]])
+
+(m/=> session-for-reference [:=> [:cat :any :any] [:maybe schema/CheckoutSession]])

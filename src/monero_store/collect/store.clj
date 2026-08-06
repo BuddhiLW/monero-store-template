@@ -203,3 +203,5 @@
     (insert-invoice! store invoice)
     [(some? (claim-paid! store (:invoice/id invoice)))   ; => true, this call won
      (nil? (claim-paid! store (:invoice/id invoice)))])) ; => true, the second cannot
+
+(m/=> newest-first [:=> [:cat [:sequential :map]] [:sequential :map]])

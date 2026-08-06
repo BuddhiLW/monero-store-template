@@ -162,3 +162,14 @@
       [:=> [:cat :map schema/Money [:sequential schema/Rate] :keyword schema/Instant]
        [:maybe schema/Quote]])
 (m/=> expired? [:=> [:cat schema/Quote schema/Instant] :boolean])
+
+(m/=> set-bounds! [:=> [:cat schema/Pair number? number?] [:tuple number? number?]])
+
+(m/=> bounds-for [:=> [:cat schema/Pair] [:maybe [:tuple number? number?]]])
+
+(m/=> consensus [:=> [:cat :map [:sequential schema/Rate] schema/Pair schema/Instant]
+                 [:maybe [:map [:rate/price number?] [:rate/sources [:vector :keyword]]]]])
+
+(m/=> pow10 [:=> [:cat :int] :any])
+
+(m/=> implied-rate [:=> [:cat schema/Money schema/Money] [:maybe number?]])

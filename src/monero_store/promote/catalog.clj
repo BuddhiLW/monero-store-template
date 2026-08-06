@@ -86,3 +86,11 @@
 (m/=> items [:=> :cat [:vector schema/Item]])
 (m/=> listed [:=> :cat [:vector schema/Item]])
 (m/=> price [:=> [:cat schema/Item] schema/Money])
+
+(m/=> register! [:=> [:cat schema/Item] schema/Item])
+
+(m/=> register-all! [:=> [:cat [:sequential schema/Item]] [:vector schema/Item]])
+
+(m/=> clear! [:=> :cat :nil])
+
+(m/=> listed? [:=> [:cat :keyword] :boolean])

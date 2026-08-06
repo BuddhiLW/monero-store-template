@@ -109,3 +109,17 @@
 (m/=> ->number [:=> [:cat :any] [:maybe number?]])
 (m/=> extract [:=> [:cat :any [:sequential :any]] [:maybe number?]])
 (m/=> round [:=> [:cat [:sequential :any]] [:vector schema/Rate]])
+
+(m/=> ->source [:=> [:cat :map :any ifn?] :any])
+
+(m/=> fixed-source [:=> [:cat [:map [:id :keyword] [:pair schema/Pair] [:price number?]
+                                  [:now-fn {:optional true} ifn?]]] :any])
+
+(m/=> registry [:=> [:cat [:map [:client {:optional true} :any]
+                               [:now-fn {:optional true} ifn?]
+                               [:source-profiles {:optional true} [:sequential :map]]]]
+                [:vector :any]])
+
+(m/=> feed [:=> [:cat [:map [:rate-sources {:optional true} [:sequential :any]]
+                           [:ttl-ms {:optional true} :int]
+                           [:now-fn {:optional true} ifn?]]] ifn?])

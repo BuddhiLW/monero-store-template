@@ -11,7 +11,8 @@
   retried by the next sweep, and at-least-once is the only delivery a store
   and a foreign system can honestly agree on."
   (:require [taoensso.timbre :as log]
-            [monero-store.collect.store :as store]))
+            [monero-store.collect.store :as store]
+            [malli.core :as m]))
 
 (defprotocol IFulfilment
   (fulfil! [this grant]
@@ -71,3 +72,16 @@
       (mapv #(fulfil! % grant) fulfilments))
     (revoke! [_ grant reason]
       (mapv #(revoke! % grant reason) fulfilments))))
+
+;; ---------------------------------------------------------------------------
+;; contracts
+
+(m/=> noop [:=> :cat :any])
+
+(m/=> logging [:=> :cat :any])
+
+(m/=> ledger [:=> [:cat :any] :any])
+
+(m/=> handler [:=> [:cat ifn?] :any])
+
+(m/=> composite [:=> [:cat [:sequential :any]] :any])

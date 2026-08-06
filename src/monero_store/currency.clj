@@ -4,7 +4,8 @@
   A currency is its id, the number of decimal places its minor unit represents,
   and whether it is settled on a chain or by a processor. Adding one is a map
   entry — nothing below this namespace branches on which currency it is."
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [malli.core :as m]))
 
 (def base-currencies
   "Currencies every deployment starts with. `:currency/scale` is how many
@@ -82,3 +83,24 @@
         (.setScale (int places) java.math.RoundingMode/HALF_UP)
         (.unscaledValue)
         (.longValueExact))))
+
+;; ---------------------------------------------------------------------------
+;; contracts
+
+(m/=> register! [:=> [:cat [:map [:currency/id :keyword] [:currency/scale :int]]] :map])
+
+(m/=> spec [:=> [:cat :keyword] [:maybe :map]])
+
+(m/=> known? [:=> [:cat :keyword] :boolean])
+
+(m/=> scale [:=> [:cat :keyword] [:maybe :int]])
+
+(m/=> registered [:=> :cat [:set :keyword]])
+
+(m/=> crypto? [:=> [:cat :keyword] :boolean])
+
+(m/=> pow10 [:=> [:cat :int] :any])
+
+(m/=> ->display [:=> [:cat :keyword [:maybe :int]] :string])
+
+(m/=> ->minor-units [:=> [:cat :keyword [:or :string number?]] :int])

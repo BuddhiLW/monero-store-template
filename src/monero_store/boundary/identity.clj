@@ -9,7 +9,8 @@
 
   Two implementations ship: one for a demo and one for machine clients. Neither
   is an authentication system, and both say so."
-  (:require [clojure.string :as str])
+  (:require [clojure.string :as str]
+            [malli.core :as m])
   (:import (java.nio.charset StandardCharsets)
            (java.security MessageDigest)))
 
@@ -66,3 +67,18 @@
   (boolean
    (and (not (str/blank? (str admin-token)))
         (constant-time= (str admin-token) (str (bearer-token request))))))
+
+;; ---------------------------------------------------------------------------
+;; contracts
+
+(m/=> header-identity [:function [:=> :cat ifn?] [:=> [:cat [:map [:header {:optional true} :string]]] ifn?]])
+
+(m/=> constant-time= [:=> [:cat [:maybe :string] [:maybe :string]] [:maybe :boolean]])
+
+(m/=> bearer-token [:=> [:cat :map] [:maybe :string]])
+
+(m/=> token-identity [:=> [:cat [:maybe :map]] ifn?])
+
+(m/=> anonymous [:=> :cat ifn?])
+
+(m/=> operator? [:=> [:cat [:maybe :string] :map] :boolean])

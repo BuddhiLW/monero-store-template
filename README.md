@@ -13,7 +13,7 @@ drive the whole thing from without a daemon, a processor account, or a coin.
 clojure -M:nrepl   # then (go) — a live store on :8080, every rail faked
 bb ui:watch        # the storefront, compiled into what that store serves
 bb tokens          # tokens.edn -> the stylesheets
-bb test            # 73 tests here, plus design-forge's own 23
+bb test            # 87 tests here, plus design-forge's own 27
 ```
 
 ## What it is for
@@ -81,6 +81,35 @@ adapters/jdbc        :jdbc         next.jdbc + postgres, for a real order store
 
 `system` resolves them with `requiring-resolve`; a build without the alias logs
 what it could not register and starts anyway.
+
+## Every function states its contract
+
+Each of the 206 functions in `src/` carries an `m/=>` schema, and the suite
+INSTRUMENTS them: `monero-store.contract-test` calls `malli.instrument/instrument!`
+at load, so every other test in the suite runs against enforced contracts. A
+schema that lies about its own function fails the build rather than decorating
+it — four did when instrumentation was first switched on, and the schemas were
+the things that were wrong.
+
+The same namespace guards the coverage itself: a new `defn` with no contract
+fails `every-function-in-the-store-declares-its-contract`, so the spine cannot
+quietly decay.
+
+The tests below it are not hand-written cases. [hive-schemas][hive-schemas]
+synthesizes the generator, the oracle and the mutants from the same schemas the
+contracts are written in, and [hive-test][hive-test] supplies the mutation
+engine — so `settlement-of` is checked against every corruption of the
+`Settlement` schema, which is what makes that schema a specification instead of
+a description.
+
+The sums are [hive-dsl][hive-dsl]'s `defadt`: one declaration yields the
+constructor (which refuses an undeclared variant), the predicate, an
+exhaustive `adt-case` checked at macro-expansion time, and the ADT's own malli
+schema.
+
+[hive-dsl]: https://github.com/hive-agi/hive-dsl
+[hive-schemas]: https://github.com/hive-agi/hive-schemas
+[hive-test]: https://github.com/hive-agi/hive-test
 
 ## Embedding it
 

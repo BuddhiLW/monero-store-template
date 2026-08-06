@@ -163,3 +163,16 @@
 (m/=> callback-token [:=> [:cat :any :any] schema/NonBlank])
 (m/=> token-valid? [:=> [:cat :any :any :any] :boolean])
 (m/=> moneropay-observation [:=> [:cat schema/NonBlank [:maybe :map]] schema/WalletObservation])
+
+(m/=> hmac-hex [:=> [:cat :any :any] schema/NonBlank])
+
+(m/=> transfer->value [:=> [:cat :map] schema/WalletTransfer])
+
+(m/=> moneropay-wallet [:=> [:cat [:map [:client {:optional true} :any]
+                                       [:base-url {:optional true} :string]]] :any])
+
+(m/=> fake-wallet [:function [:=> :cat :any] [:=> [:cat [:map [:prefix {:optional true} :string]]] :any]])
+
+(m/=> credit! [:function
+               [:=> [:cat :any schema/NonBlank :int] schema/WalletTransfer]
+               [:=> [:cat :any schema/NonBlank :int [:maybe :map]] schema/WalletTransfer]])

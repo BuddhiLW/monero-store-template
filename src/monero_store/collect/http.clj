@@ -6,7 +6,8 @@
   JSON. Only this namespace knows which client library is on the classpath."
   (:require [hato.client :as hato]
             [jsonista.core :as json]
-            [taoensso.timbre :as log]))
+            [taoensso.timbre :as log]
+            [malli.core :as m]))
 
 (defprotocol IHttp
   (request [this req]
@@ -62,3 +63,17 @@
   (reify IHttp
     (request [_ req]
       (or (respond-fn req) {:http/status 0 :http/body nil}))))
+
+;; ---------------------------------------------------------------------------
+;; contracts
+;;
+;; A port implementation is :any — a protocol is not a value schema, and
+;; pretending otherwise buys nothing a satisfies? check does not already give.
+
+(m/=> parse-json [:=> [:cat :any] :any])
+
+(m/=> ok? [:=> [:cat [:map [:http/status {:optional true} [:maybe :int]]]] :boolean])
+
+(m/=> hato-client [:=> [:cat [:map [:timeout-ms {:optional true} :int]]] :any])
+
+(m/=> stub-client [:=> [:cat ifn?] :any])
