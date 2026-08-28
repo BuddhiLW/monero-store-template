@@ -30,7 +30,8 @@
             [taoensso.timbre :as log]
             [monero-store.collect.analytics :as analytics]
             [malli.core :as m]
-            [monero-store.schema :as schema])
+            [monero-store.schema :as schema]
+            [monero-store.collect.reachability :as reach])
   (:gen-class))
 
 (defn- env
@@ -95,6 +96,7 @@
      :manual? (not (env-flag "DISABLE_MANUAL_RAIL"))
      :rates {:ttl-ms (env-long "RATE_CACHE_TTL_MS" 60000)
              :timeout-ms (env-long "RATE_TIMEOUT_MS" 10000)}
+     :reachability {:timeout-ms (env-long "REACHABILITY_TIMEOUT_MS" 2000)}
      :reconcile {:interval-ms (env-long "RECONCILE_INTERVAL_MS" 60000)}}))
 
 (defn load-experiments
@@ -203,6 +205,43 @@
                                           :provider/currency (:currency cards))))
        manual? (conj (manual/entry {:provider/currency (:currency cards)}))))))
 
+(defn endpoints
+  "The services this deployment must be able to reach, read off the same
+  config the builders above are wired from.
+
+  A rail that is not configured is not probed."
+  [{:keys [chain cards store analytics]}]
+  (into []
+        (keep identity)
+        [(when (= :moneropay (:backend chain))
+           (reach/endpoint-of-url "moneropay" (:moneropay-url chain)))
+         (when (= :wallet-rpc (:backend chain))
+           (reach/endpoint-of-url "wallet-rpc" (:uri (:wallet-rpc chain))))
+         (when (= :jdbc (:backend store))
+           (reach/endpoint-of-url "database" (:jdbc-url store)))
+         (when (= :stripe (:backend cards))
+           (reach/endpoint-of-url "cards" (or (:api-base cards) "https://api.stripe.com")))
+         (when (= :umami (:backend analytics))
+           (reach/endpoint-of-url "analytics" (:base-url analytics)))]))
+
+(defn report-reachability!
+  "Print what a telnet to each configured service would have told you, and
+  return the summary. Reads the same environment `start!` does."
+  []
+  (let [cfg (config)
+        summary (reach/report (reach/socket-probe)
+                              (endpoints cfg)
+                              (get-in cfg [:reachability :timeout-ms]))]
+    (doseq [{:reach/keys [label host port outcome elapsed-ms detail]} (:reach/endpoints summary)]
+      (println (format "%-12s %s:%-6s %-13s %5dms%s"
+                       label host port
+                       (name (:adt/variant outcome))
+                       elapsed-ms
+                       (if detail (str "  " detail) ""))))
+    (when (zero? (:reach/checked summary))
+      (println "no service is configured: this deployment reaches nothing over the network"))
+    summary))
+
 (defn rates-feed
   "A cached round over the public tickers, as a 0-arity function."
   [{:keys [ttl-ms]} client]
@@ -248,13 +287,15 @@
   hand something over, `:identify-fn` to say who is asking, `:catalog` to sell
   its own things, `:rails` to register a rail this template has never heard of,
   `:store` to persist somewhere it already runs, `:rates-fn` to price from a
-  feed it already has, `:analytics` to measure with its own sink, and
-  `:experiments` to run arms declared somewhere other than the token file.
-  Anything else is a config key and overrides the environment."
+  feed it already has, `:analytics` to measure with its own sink,
+  `:experiments` to run arms declared somewhere other than the token file,
+  `:endpoints` to name services this store does not configure but the host
+  needs reachable, and `:probe` to reach them some way other than a TCP
+  connect. Anything else is a config key and overrides the environment."
   ([] (start! {}))
   ([overrides]
    (let [seams [:fulfilment :identify-fn :catalog :rails :store :rates-fn
-                :analytics :experiments]
+                :analytics :experiments :endpoints :probe]
          cfg (merge (config) (apply dissoc overrides seams))
          client (http/hato-client {:timeout-ms (get-in cfg [:rates :timeout-ms])})
          order-store (or (:store overrides) (order-store (:store cfg)))
@@ -270,6 +311,9 @@
                :experiments (or (:experiments overrides) (load-experiments cfg))
                :admin-token (:admin-token cfg)
                :callback-base (:callback-base cfg)
+               :endpoints (into (endpoints cfg) (:endpoints overrides))
+               :probe (or (:probe overrides) (reach/socket-probe))
+               :reach-timeout-ms (get-in cfg [:reachability :timeout-ms])
                :rates-fn (or (:rates-fn overrides) (rates-feed (:rates cfg) client))}
          stop-reconcile (reconcile/start! deps (:reconcile cfg))
          server (aleph/start-server (routes/handler deps) {:port (:port cfg)})]
@@ -280,6 +324,7 @@
      (log/info "monero-store up" {:port (:port cfg)
                                   :rails (sort (provider/ids (:rails deps)))
                                   :items (mapv :item/id (catalog/items))
+                                  :endpoints (mapv :endpoint/label (:endpoints deps))
                                   :experiments (sort (keys (:experiments deps)))})
      {:server server :deps deps :stop-reconcile stop-reconcile :config cfg})))
 
@@ -328,6 +373,10 @@
 (m/=> card-gateway [:=> [:cat :map] [:maybe :any]])
 
 (m/=> rails [:=> [:cat :map :map] [:map-of :keyword :map]])
+
+(m/=> endpoints [:=> [:cat :map] [:vector schema/Endpoint]])
+
+(m/=> report-reachability! [:=> :cat schema/ReachabilitySummary])
 
 (m/=> rates-feed [:=> [:cat :map :any] ifn?])
 

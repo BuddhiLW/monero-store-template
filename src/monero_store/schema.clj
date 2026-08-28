@@ -312,6 +312,14 @@
    [:reach/elapsed-ms [:int {:min 0}]]
    [:reach/detail [:maybe :string]]])
 
+(def ReachabilitySummary
+  "One round of probes over every endpoint a deployment must reach."
+  [:map {:closed true}
+   [:reach/checked [:int {:min 0}]]
+   [:reach/unreachable [:int {:min 0}]]
+   [:reach/ok? :boolean]
+   [:reach/endpoints [:vector ReachabilityReport]]])
+
 (def Fulfilment
   "What the host application was told to hand over, and when."
   [:map

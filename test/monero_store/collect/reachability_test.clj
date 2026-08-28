@@ -60,3 +60,46 @@
     (testing "a port nothing is listening on reports refused, not open"
       (is (false? (reach/open? report)))
       (is (= :reach/refused (:adt/variant (:reach/outcome report)))))))
+
+(deftest a-url-names-a-host-and-a-port
+  (testing "an explicit port is taken as given"
+    (is (= {:endpoint/host "moneropay" :endpoint/port 5000 :endpoint/label "moneropay"}
+           (reach/endpoint-of-url "moneropay" "http://moneropay:5000"))))
+
+  (testing "a scheme's default port stands in for an absent one"
+    (is (= 443 (:endpoint/port (reach/endpoint-of-url "cards" "https://api.stripe.com"))))
+    (is (= 80 (:endpoint/port (reach/endpoint-of-url "analytics" "http://umami.invalid/api")))))
+
+  (testing "a JDBC URL is read through the driver scheme it wraps"
+    (is (= {:endpoint/host "postgres" :endpoint/port 5432 :endpoint/label "database"}
+           (reach/endpoint-of-url "database" "jdbc:postgresql://postgres:5432/store")))
+    (is (= 5432 (:endpoint/port (reach/endpoint-of-url "database" "jdbc:postgresql://pg/store")))))
+
+  (testing "a url that names no reachable host names no endpoint"
+    (is (nil? (reach/endpoint-of-url "x" nil)))
+    (is (nil? (reach/endpoint-of-url "x" "")))
+    (is (nil? (reach/endpoint-of-url "x" "not a url")))
+    (is (nil? (reach/endpoint-of-url "x" "ftp://host.invalid/f"))))
+
+  (testing "what it does return is an Endpoint"
+    (let [found (reach/endpoint-of-url "moneropay" "http://moneropay:5000")]
+      (is (= found (schema/check! schema/Endpoint found))))))
+
+(deftest a-round-of-probes-names-what-could-not-be-reached
+  (let [prober (reach/fake-probe {["down.invalid" 5000] (ConnectException. "refused")})
+        summary (reach/report prober
+                              [(endpoint "up.invalid" 5000 "up")
+                               (endpoint "down.invalid" 5000 "down")]
+                              50)]
+    (is (= summary (schema/check! schema/ReachabilitySummary summary)))
+    (is (= 2 (:reach/checked summary)))
+    (is (= 1 (:reach/unreachable summary)))
+    (is (false? (:reach/ok? summary)))
+    (testing "and says which one, because that is the whole answer"
+      (is (= ["down"] (mapv :reach/label (remove reach/open? (:reach/endpoints summary))))))))
+
+(deftest a-deployment-that-reaches-nothing-has-nothing-to-fail
+  (let [summary (reach/report (reach/fake-probe {}) [] 50)]
+    (is (true? (:reach/ok? summary)))
+    (testing "and reports the count, so an empty round is not read as a healthy one"
+      (is (zero? (:reach/checked summary))))))

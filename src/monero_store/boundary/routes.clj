@@ -20,7 +20,8 @@
             [monero-store.boundary.shell :as shell]
             [monero-store.promote.experiments :as experiment]
             [malli.core :as m]
-            [monero-store.schema :as schema])
+            [monero-store.schema :as schema]
+            [monero-store.collect.reachability :as reach])
   (:import (java.util Date)
 [java.util UUID]))
 
@@ -270,6 +271,20 @@
                                   :item (name item-id)
                                   :reference reference}))))))))
 
+(defn- reachability-handler
+  "Can this deployment still reach the services it settles through?
+
+  Operator-only: the answer names the hosts and ports a store talks to."
+  [{:keys [endpoints probe reach-timeout-ms] :as deps}]
+  (fn [request]
+    (with-operator deps request
+      (fn []
+        (let [summary (reach/report (or probe (reach/socket-probe))
+                                    (or endpoints [])
+                                    (or reach-timeout-ms 2000))]
+          (json-response (if (:reach/ok? summary) 200 503)
+                         (wire/reachability summary)))))))
+
 ;; ---------------------------------------------------------------------------
 
 (defn router
@@ -283,7 +298,8 @@
      ["/invoices/:id" {:get (invoice-handler deps)}]
      ["/me/invoices" {:get (my-invoices-handler deps)}]
      ["/admin/queue" {:get (queue-handler deps)}]
-     ["/admin/grants" {:post (grant-handler deps)}]]
+     ["/admin/grants" {:post (grant-handler deps)}]
+     ["/admin/reachability" {:get (reachability-handler deps)}]]
     ;; Three shapes, one handler. A rail that can name the invoice in the path
     ;; does; one that also carries a callback token appends it; a processor
     ;; that posts every event of an account to one endpoint names the invoice
@@ -384,6 +400,8 @@
 (m/=> queue-handler [:=> [:cat :map] ifn?])
 
 (m/=> grant-handler [:=> [:cat :map] ifn?])
+
+(m/=> reachability-handler [:=> [:cat :map] ifn?])
 
 (m/=> router [:=> [:cat :map] :any])
 

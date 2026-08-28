@@ -6,7 +6,8 @@
   anything the customer has no business seeing simply has no clause."
   (:require [monero-store.currency :as currency]
             [monero-store.promote.invoice :as invoice]
-            [malli.core :as m]))
+            [malli.core :as m]
+            [monero-store.schema :as schema]))
 
 (defn money
   [{:money/keys [amount currency] :as value}]
@@ -100,6 +101,20 @@
    :price price
    :as-of as-of})
 
+(defn reachability
+  [{:reach/keys [checked unreachable ok? endpoints]}]
+  {:ok ok?
+   :checked checked
+   :unreachable unreachable
+   :endpoints (mapv (fn [{:reach/keys [label host port outcome elapsed-ms detail]}]
+                      {:label label
+                       :host host
+                       :port port
+                       :outcome (name (:adt/variant outcome))
+                       :elapsed-ms elapsed-ms
+                       :detail detail})
+                    endpoints)})
+
 (defn fulfilment
   [{:fulfilment/keys [invoice-id customer-id item-id period-end granted-at]}]
   {:invoice (str invoice-id)
@@ -134,3 +149,7 @@
 (m/=> rate [:=> [:cat :map] [:map [:source :string] [:pair [:vector :string]]]])
 
 (m/=> fulfilment [:=> [:cat :map] [:map [:invoice :string] [:customer :string] [:item :string]]])
+
+(m/=> reachability [:=> [:cat schema/ReachabilitySummary]
+                    [:map [:ok :boolean] [:checked :int] [:unreachable :int]
+                          [:endpoints [:vector [:map [:label :string] [:outcome :string]]]]]])

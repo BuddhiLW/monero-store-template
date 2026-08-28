@@ -29,4 +29,7 @@
   arch:svg {:doc "Render the generated PlantUML to SVG (needs plantuml on PATH)"
                        :depends [arch]
                        :task (shell "sh" "-c"
-                                    "plantuml -tsvg docs/diagrams/plantuml/monero-store/*.puml")}}}
+                                    "plantuml -tsvg docs/diagrams/plantuml/monero-store/*.puml")}
+  reach {:doc "Probe every service this deployment is configured to reach — the telnet, as a command"
+                 :task (shell "clojure" "-M" "-e"
+                              "(require 'monero-store.system)(let [s (monero-store.system/report-reachability!)] (shutdown-agents) (System/exit (if (:reach/ok? s) 0 1)))")}}}

@@ -5,7 +5,8 @@
             [monero-store.boundary.identity :as identity]
             [monero-store.boundary.routes :as routes]
             [monero-store.collect.wallet :as wallet]
-            [monero-store.support :as support]))
+            [monero-store.support :as support]
+            [monero-store.collect.reachability :as reach]))
 
 (def ^:private mapper (json/object-mapper {:decode-key-fn true}))
 
@@ -147,3 +148,45 @@
 
 (deftest healthz-answers-without-a-customer
   (is (= 200 (:status ((app (support/deps)) (request :get "/healthz"))))))
+
+(defn- unreachable-deps
+  [failures endpoints]
+  (assoc (support/deps)
+         :probe (reach/fake-probe failures)
+         :endpoints endpoints
+         :reach-timeout-ms 50))
+
+(deftest which-services-a-store-talks-to-is-an-operator-question
+  (let [deps (unreachable-deps {} [{:endpoint/host "moneropay" :endpoint/port 5000
+                                    :endpoint/label "moneropay"}])]
+    (is (= 401 (:status ((app deps) (request :get "/api/admin/reachability")))))))
+
+(deftest a-store-that-cannot-reach-a-rail-is-not-ready
+  (let [deps (unreachable-deps
+              {["moneropay" 5000] (java.net.ConnectException. "refused")}
+              [{:endpoint/host "moneropay" :endpoint/port 5000 :endpoint/label "moneropay"}
+               {:endpoint/host "wallet" :endpoint/port 18083 :endpoint/label "wallet-rpc"}])
+        response ((app deps) (request :get "/api/admin/reachability" :operator "operator-token"))
+        body (body-of response)]
+    (is (= 503 (:status response)))
+    (is (false? (:ok body)))
+    (is (= 2 (:checked body)))
+    (is (= 1 (:unreachable body)))
+    (testing "the report names the service and how reaching it failed"
+      (is (= {"moneropay" "refused" "wallet-rpc" "open"}
+             (into {} (map (juxt :label :outcome)) (:endpoints body)))))))
+
+(deftest a-blocked-path-reads-differently-from-a-refused-one
+  (let [deps (unreachable-deps
+              {["monerod" 18081] (java.net.SocketTimeoutException. "timed out")}
+              [{:endpoint/host "monerod" :endpoint/port 18081 :endpoint/label "monerod"}])
+        body (body-of ((app deps) (request :get "/api/admin/reachability" :operator "operator-token")))]
+    (testing "a timeout is a path that never answered, not a service that refused"
+      (is (= "timeout" (:outcome (first (:endpoints body))))))))
+
+(deftest a-store-that-reaches-everything-answers-200
+  (let [deps (unreachable-deps {} [{:endpoint/host "moneropay" :endpoint/port 5000
+                                    :endpoint/label "moneropay"}])
+        response ((app deps) (request :get "/api/admin/reachability" :operator "operator-token"))]
+    (is (= 200 (:status response)))
+    (is (true? (:ok (body-of response))))))
