@@ -343,4 +343,4 @@
 
 (m/=> stop! [:=> [:cat [:maybe :map]] :any])
 
-(m/=> -main [:=> [:* :any] :any])
+(m/=> -main [:=> [:cat [:* :any]] :any])

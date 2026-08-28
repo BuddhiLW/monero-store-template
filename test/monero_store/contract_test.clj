@@ -5,7 +5,9 @@
   Loading this namespace instruments the whole store. Every other test in the
   suite therefore runs against instrumented functions, so a schema that lies
   about its own function fails here rather than being decoration."
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.java.io :as io]
+            [clojure.string :as str]
+            [clojure.test :refer [deftest is testing]]
             [hive-schemas.test :as hst]
             [malli.core :as m]
             [malli.instrument :as mi]
@@ -15,6 +17,26 @@
             [monero-store.promote.invoice :as invoice]
             [monero-store.promote.quote :as quote]
             [monero-store.schema :as schema]))
+
+(defn- source-namespaces
+  "Every namespace under src/, read off disk rather than listed by hand."
+  []
+  (->> (file-seq (io/file "src"))
+       (filter #(and (.isFile ^java.io.File %)
+                     (str/ends-with? (.getName ^java.io.File %) ".clj")))
+       (map #(-> (.getPath ^java.io.File %)
+                 (str/replace #"^src/" "")
+                 (str/replace #"\.clj$" "")
+                 (str/replace "_" "-")
+                 (str/replace "/" ".")
+                 symbol))
+       sort))
+
+;; Loading every one of them is itself the guard. `all-ns` reports what has
+;; already been required, so a namespace no test happens to pull in is invisible
+;; to the coverage check below AND to the compiler — which is how a
+;; `monero-store.system` that could not load at all sat behind a green suite.
+(run! require (source-namespaces))
 
 (mi/instrument!)
 
@@ -51,6 +73,17 @@
                         set)]
     [(sort (filter declared candidates))
      (sort (remove declared candidates))]))
+
+(deftest every-namespace-in-the-store-loads
+  (let [found (source-namespaces)]
+    (testing "the walk finds the store, not an empty directory"
+      (is (< 20 (count found))))
+
+    (testing "and every one of them is loaded, so the guards below can see it"
+      (is (= [] (remove (set (map ns-name (all-ns))) found))))
+
+    (testing "the entry namespace included — it is the one nothing else requires"
+      (is (contains? (set found) 'monero-store.system)))))
 
 (deftest every-function-in-the-store-declares-its-contract
   (let [missing (into {}
