@@ -8,6 +8,4 @@
  ;; coordinate inherits the money path and zero vendor jars.
  :src-dirs ["src" "resources"]
 
- ;; :none until the publication target is chosen. `install` still works and
- ;; is what proves the artifact resolves.
- :publish  :none}
+ :publish  :clojars}
