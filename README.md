@@ -13,7 +13,8 @@ drive the whole thing from without a daemon, a processor account, or a coin.
 clojure -M:nrepl   # then (go) — a live store on :8080, every rail faked
 bb ui:watch        # the storefront, compiled into what that store serves
 bb tokens          # tokens.edn -> the stylesheets
-bb test            # 93 tests here, plus design-forge’s own 35
+bb test            # 101 tests here, plus design-forge’s own 35
+code cljs e2e run  # nine Playwright scenarios against the running store
 ```
 
 ## What it is for
@@ -112,6 +113,19 @@ schema.
 [hive-test]: https://github.com/hive-agi/hive-test
 
 ## Embedding it
+
+Two ways in. Clone this repository when you want the whole thing — storefront,
+stylesheet pipeline, adapters — as the starting point for one store. Depend on
+the coordinate when you already have an application and want its money path:
+
+```clojure
+io.github.buddhilw/monero-store {:mvn/version "0.3.0"}
+```
+
+That jar is `src` and `resources` only: the money path, its ports, and zero
+payment-SDK dependencies. Every SDK-backed adapter stays on its own source root
+in this repository, so a consumer brings its own — or copies one. `clojure -T:build
+install` puts it in `~/.m2`.
 
 The store never authenticates anyone and never decides what a sale entitles
 someone to. Both are yours:
