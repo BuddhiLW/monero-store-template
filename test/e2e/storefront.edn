@@ -1,0 +1,131 @@
+;; Browser steps assert what a payer sees; :eval-cljs steps assert what the app
+;; believes, inside the page the scenario is driving.
+;;
+;; A fault from `cljs e2e mutate` is spliced in after the opening navigation and
+;; waits. A scenario whose assertions all run against DOM rendered before that
+;; point cannot kill a rendering fault, so the ones below re-render first.
+[{:id :catalog
+  :build :app
+  :tags [:smoke]
+  :doc "The storefront lists what is for sale, priced in the stored currency."
+  :steps [[:goto "/"]
+          [:wait-for ".card"]
+          [:expect-count ".card" 2]
+          [:expect-text ".card h3" "Pro"]
+          [:expect-text ".card" "99.00"]
+          [:expect-text ".card .period" "Per year"]
+          [:screenshot "catalog"]]}
+
+ {:id :catalog-redraws-from-the-store
+  :build :app
+  :tags [:smoke :mutation]
+  :doc "Reloading re-reads the catalog and re-renders every price."
+  :steps [[:goto "/"]
+          [:wait-for ".card"]
+          [:click ".bar button"]
+          [:wait-ms 400]
+          [:expect-count ".card" 2]
+          [:expect-text ".card" "99.00"]
+          [:expect-text ".card .period" "Per year"]
+          [:eval-cljs "(assert (= 2 (count (:items (:catalog @monero-store-ui.state/app)))))"]]}
+
+ {:id :reload-re-reads-rather-than-keeping-what-it-had
+  :build :app
+  :tags [:smoke :mutation]
+  :doc "Reload fetches the catalog again; it does not merely redraw the old one."
+  :steps [[:goto "/"]
+          [:wait-for ".card"]
+          [:eval-cljs "(swap! monero-store-ui.state/app assoc :catalog nil)"]
+          [:wait-ms 200]
+          [:expect-count ".card" 0]
+          [:click ".bar button"]
+          [:wait-for ".card"]
+          [:expect-count ".card" 2]]}
+
+ {:id :catalog-state
+  :build :app
+  :tags [:smoke :runtime]
+  :doc "What the page shows came from the store, not from a fixture."
+  :steps [[:goto "/"]
+          [:wait-for ".card"]
+          [:eval-cljs "(assert (= 2 (count (:items (:catalog @monero-store-ui.state/app)))))"]
+          [:eval-cljs "(assert (seq (:providers (:catalog @monero-store-ui.state/app))))"]
+          [:eval-cljs "(assert (nil? (:error @monero-store-ui.state/app)))"]
+          [:eval-cljs "(assert (nil? (:invoice @monero-store-ui.state/app)))"]]}
+
+ {:id :every-rail-the-store-offers-is-rendered
+  :build :app
+  :tags [:smoke :runtime]
+  :doc "The buttons a payer can press are exactly the rails the store returned."
+  :steps [[:goto "/"]
+          [:wait-for ".card"]
+          [:eval-cljs
+           "(assert (= (.-length (js/document.querySelectorAll \"article.card:first-of-type .rails button.rail\"))
+                       (count (:providers (:catalog @monero-store-ui.state/app)))))"]]}
+
+ {:id :checkout-opens-an-invoice
+  :build :app
+  :tags [:checkout :mutation]
+  :doc "Choosing a rail opens one invoice and shows what is owed."
+  :steps [[:goto "/"]
+          [:wait-for ".card"]
+          [:expect-hidden ".pay"]
+          [:fill ".bar input" "e2e-payer"]
+          [:click ".card .rails button.rail"]
+          [:wait-for ".pay"]
+          [:expect-text ".pay h2" "Pay"]
+          [:expect-text ".pay .status" "Waiting"]
+          [:expect-text ".pay .facts" "Remaining"]
+          [:eval-cljs "(assert (some? (get-in @monero-store-ui.state/app [:invoice :invoice :id])))"]
+          [:eval-cljs "(assert (= \"pending\" (get-in @monero-store-ui.state/app [:invoice :invoice :status])))"]
+          [:screenshot "invoice-open"]]}
+
+ {:id :an-xmr-invoice-shows-an-address-to-pay
+  :build :app
+  :tags [:checkout :xmr :mutation]
+  :doc "The chain rail hands back an address, an exact amount, and a wallet URI."
+  :steps [[:goto "/"]
+          [:wait-for ".card"]
+          [:fill ".bar input" "e2e-xmr"]
+          [:click ".card .rails button.rail:has-text(\"monero\")"]
+          [:wait-for ".pay .address"]
+          [:expect-text ".pay .address code" "fake-"]
+          [:expect-text ".pay .address label" "Send exactly"]
+          [:expect-visible ".pay .address a.button"]
+          [:eval-cljs "(assert (= \"xmr\" (get-in @monero-store-ui.state/app [:invoice :invoice :amount :currency])))"]
+          [:eval-cljs
+           "(assert (clojure.string/starts-with?
+                      (.getAttribute (js/document.querySelector \".pay .address a.button\") \"href\")
+                      \"monero:\"))"]
+          [:screenshot "xmr-invoice"]]}
+
+ {:id :an-xmr-invoice-owes-its-whole-amount-until-paid
+  :build :app
+  :tags [:checkout :xmr :mutation]
+  :doc "Nothing is paid yet, so remaining is the full amount, in XMR."
+  :steps [[:goto "/"]
+          [:wait-for ".card"]
+          [:fill ".bar input" "e2e-xmr-owing"]
+          [:click ".card .rails button.rail:has-text(\"monero\")"]
+          [:wait-for ".pay .facts"]
+          [:expect-text ".pay .facts" "0.000000000000"]
+          [:eval-cljs
+           "(let [inv (get-in @monero-store-ui.state/app [:invoice :invoice])]
+              (assert (= (:amount (:amount inv)) (:amount (:remaining inv))))
+              (assert (zero? (:amount (:paid inv)))))"]]}
+
+ {:id :reopening-does-not-accumulate-invoices
+  :build :app
+  :tags [:checkout]
+  :doc "A payer who goes back and buys the same item again gets one invoice."
+  :steps [[:goto "/"]
+          [:wait-for ".card"]
+          [:fill ".bar input" "e2e-repeat"]
+          [:click ".card .rails button.rail"]
+          [:wait-for ".pay"]
+          [:click ".pay button.link"]
+          [:wait-for ".card"]
+          [:click ".card .rails button.rail"]
+          [:wait-for ".pay"]
+          [:wait-ms 400]
+          [:eval-cljs "(assert (= 1 (count (:invoices @monero-store-ui.state/app))))"]]}]

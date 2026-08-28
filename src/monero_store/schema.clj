@@ -289,6 +289,29 @@
    [:adt/type [:= :CheckoutState]]
    [:adt/variant (into [:enum] (sort (:variants adt/CheckoutState)))]])
 
+(def Endpoint
+  "A service the store must be able to reach to settle through it."
+  [:map {:closed true}
+   [:endpoint/host NonBlank]
+   [:endpoint/port [:int {:min 1 :max 65535}]]
+   [:endpoint/label {:optional true} [:maybe NonBlank]]])
+
+(def Reachability
+  "A Reachability ADT value. Variants are read off the sum itself."
+  [:map {:closed true}
+   [:adt/type [:= :Reachability]]
+   [:adt/variant (into [:enum] (sort (:variants adt/Reachability)))]])
+
+(def ReachabilityReport
+  "What one probe of one endpoint found."
+  [:map {:closed true}
+   [:reach/label NonBlank]
+   [:reach/host NonBlank]
+   [:reach/port [:int {:min 1 :max 65535}]]
+   [:reach/outcome Reachability]
+   [:reach/elapsed-ms [:int {:min 0}]]
+   [:reach/detail [:maybe :string]]])
+
 (def Fulfilment
   "What the host application was told to hand over, and when."
   [:map

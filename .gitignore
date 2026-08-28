@@ -12,3 +12,4 @@ local.deps.edn
 .clj-kondo/.cache/
 .clj-kondo/imports/
 .cpcache/
+.hive-cljs/

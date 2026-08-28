@@ -6,4 +6,10 @@
  :tags ["payments" "monero" "white-label" "template" "cppb" "ddd"] 
  :carto {:source-roots ["adapters/jdbc/src" "adapters/monero-rpc/src" "adapters/stripe/src" "dev" "resources" "src" "test" "ui/src"]}
  :hive.cljs {:shadow {:nrepl-port 7931}
-                         :builds {:app {:http-port 8080}}}}
+                         :builds {:app {:http-port 8080}}
+             :e2e {:scenario-paths ["test/e2e"]
+                   :faults [{:id :money-blank :target monero-store-ui.format/money :with "(constantly \"\")"}
+                                               {:id :status-blank :target monero-store-ui.format/status :with "(constantly \"\")"}
+                                               {:id :payment-uri-nil :target monero-store-ui.format/payment-uri :with "(constantly nil)"}
+                                               {:id :catalog-never-loads :target monero-store-ui.state/load-catalog! :with "(constantly nil)"}
+                                               {:id :invoices-never-load :target monero-store-ui.state/load-invoices! :with "(constantly nil)"}]}}}

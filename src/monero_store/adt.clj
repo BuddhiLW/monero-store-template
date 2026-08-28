@@ -27,6 +27,16 @@
   :checkout/paid
   :checkout/expired)
 
+(adt/defadt Reachability
+  "Whether a service the store depends on can be reached, and if not, how it
+  failed. The distinction is the whole point: a refusal is a service that is
+  down, a timeout is a path that is blocked."
+  :reach/open
+  :reach/refused
+  :reach/timeout
+  :reach/unknown-host
+  :reach/error)
+
 (defmacro adt-case
   "`hive-dsl.adt/adt-case`, re-exported so a namespace that decides about one of
   these sums requires the sums and nothing else."
