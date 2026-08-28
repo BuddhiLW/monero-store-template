@@ -15,7 +15,23 @@ bb ui:watch        # the storefront, compiled into what that store serves
 bb tokens          # tokens.edn -> the stylesheets
 bb test            # 101 tests here, plus design-forge’s own 35
 code cljs e2e run  # nine Playwright scenarios against the running store
+bb arch            # models/*.edn -> the C4 diagrams under docs/diagrams
 ```
+
+## Documentation
+
+| | |
+|---|---|
+| **[Architecture](docs/architecture.md)** | the strata, the ports, and what may depend on what |
+| **[The money path](docs/money-path.md)** | quote → charge → observe → settle → fulfil, and every invariant that holds it together |
+| **[Integrations](docs/integrations.md)** | every external system, how it is configured, and how far it is trusted |
+| **[Adding a rail](docs/rails.md)** | a reader as data, or `IPaymentRail` directly — and what does not change either way |
+| **[Embedding it](docs/embedding.md)** | the coordinate, the seams a host supplies, and what the store refuses to decide |
+| **[Testing](docs/testing.md)** | contracts, synthesized properties, mutation — and why a pass count is not a mutation score |
+| **[Operations](docs/operations.md)** | configuration, the operator queue, reconciliation, reachability |
+| **[The model](docs/models.md)** | the architecture as data, and how the diagrams are generated |
+
+![System context](docs/diagrams/plantuml/monero-store/context-view.svg)
 
 ## What it is for
 

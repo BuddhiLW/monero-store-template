@@ -1,0 +1,112 @@
+;;;;
+;;;; monero-store — deployment
+;;;;
+;;;; The compose stack in docker-compose.yml. Stagenet on purpose.
+;;;;
+#{{:el :node
+   :id :monero-store/docker-host
+   :name "Docker host"
+   :desc "One host running the whole store. Only the store's own port is published."
+   :ct [{:el :node
+         :id :monero-store/store-node
+         :name "store"
+         :desc "The uberjar, serving the API and the compiled storefront on one origin. Publishes 8080."
+         :tech "Dockerfile, JVM"}
+
+        {:el :node
+         :id :monero-store/postgres-node
+         :name "postgres"
+         :desc "The durable order store. Health-gated: the store waits for pg_isready."
+         :tech "postgres:16-alpine"}
+
+        {:el :node
+         :id :monero-store/moneropay-node
+         :name "moneropay"
+         :desc "Watches the wallet on the store's behalf and posts an unsigned callback when it sees money."
+         :tech "ghcr.io/moneropay/moneropay:v0.13.0"}
+
+        {:el :node
+         :id :monero-store/wallet-rpc-node
+         :name "wallet-rpc"
+         :desc "The wallet MoneroPay drives. Its keys are on the shared volume."
+         :tech "simple-monero-wallet-rpc, stagenet"}
+
+        {:el :node
+         :id :monero-store/monerod-node
+         :name "monerod"
+         :desc "The chain the wallet reads. Pruned, stagenet, no external RPC published."
+         :tech "simple-monerod, stagenet"}
+
+        {:el :node
+         :id :monero-store/postgres-volume
+         :name "postgres-data"
+         :desc "Invoices, customers and the payment ledger."
+         :tech "docker volume"}
+
+        {:el :node
+         :id :monero-store/wallet-volume
+         :name "moneropay-data"
+         :desc "The wallet's keys, shared by moneropay and wallet-rpc. A lost volume is lost money — back it up like a wallet, because it is one."
+         :tech "docker volume"}
+
+        {:el :node
+         :id :monero-store/monerod-volume
+         :name "monerod-data"
+         :desc "The pruned blockchain. Rebuildable, unlike the wallet volume."
+         :tech "docker volume"}]}
+
+  {:el :rel :id :monero-store/store-to-postgres
+   :from :monero-store/store-node :to :monero-store/postgres-node
+   :name "STORE_BACKEND=jdbc" :tech "JDBC 5432"}
+
+  {:el :rel :id :monero-store/store-to-moneropay
+   :from :monero-store/store-node :to :monero-store/moneropay-node
+   :name "MONERO_BACKEND=moneropay — opens subaddresses, re-reads them" :tech "HTTP 5000"}
+
+  {:el :rel :id :monero-store/moneropay-to-store
+   :from :monero-store/moneropay-node :to :monero-store/store-node
+   :name "prompts a re-read; signs nothing" :tech "HTTP callback"}
+
+  {:el :rel :id :monero-store/moneropay-to-wallet-rpc
+   :from :monero-store/moneropay-node :to :monero-store/wallet-rpc-node
+   :name "drives" :tech "JSON-RPC 38083"}
+
+  {:el :rel :id :monero-store/moneropay-to-postgres
+   :from :monero-store/moneropay-node :to :monero-store/postgres-node
+   :name "keeps its own state in" :tech "postgres"}
+
+  {:el :rel :id :monero-store/wallet-rpc-to-monerod
+   :from :monero-store/wallet-rpc-node :to :monero-store/monerod-node
+   :name "reads the chain from" :tech "RPC 38081"}
+
+  {:el :rel :id :monero-store/postgres-uses-volume
+   :from :monero-store/postgres-node :to :monero-store/postgres-volume
+   :name "persists to"}
+
+  {:el :rel :id :monero-store/wallet-rpc-uses-volume
+   :from :monero-store/wallet-rpc-node :to :monero-store/wallet-volume
+   :name "keys live on"}
+
+  {:el :rel :id :monero-store/moneropay-uses-volume
+   :from :monero-store/moneropay-node :to :monero-store/wallet-volume
+   :name "shares"}
+
+  {:el :rel :id :monero-store/monerod-uses-volume
+   :from :monero-store/monerod-node :to :monero-store/monerod-volume
+   :name "persists to"}
+
+  {:el :deployment-view
+   :id :monero-store/deployment-view
+   :title "Deployment — the compose stack"
+   :desc "What runs where, and which volume matters. Only 8080 is published; monerod's RPC and the wallet are reachable only inside the network."
+   :ct [{:ref :monero-store/docker-host}
+        {:ref :monero-store/store-to-postgres}
+        {:ref :monero-store/store-to-moneropay}
+        {:ref :monero-store/moneropay-to-store}
+        {:ref :monero-store/moneropay-to-wallet-rpc}
+        {:ref :monero-store/moneropay-to-postgres}
+        {:ref :monero-store/wallet-rpc-to-monerod}
+        {:ref :monero-store/postgres-uses-volume}
+        {:ref :monero-store/wallet-rpc-uses-volume}
+        {:ref :monero-store/moneropay-uses-volume}
+        {:ref :monero-store/monerod-uses-volume}]}}

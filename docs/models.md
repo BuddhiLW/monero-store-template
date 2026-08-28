@@ -21,6 +21,7 @@ clojure -M:arch --model-dir models --render-format plantuml --render-dir docs/di
 | `model.edn` | the elements and the relations between them — people, the store and its containers, the components of the payment seam, and every external system |
 | `views.edn` | the C4 views: which elements each diagram shows, and in which direction the arrows run |
 | `state.edn` | the invoice lifecycle as a state machine, and its view |
+| `deployment.edn` | the compose stack — what runs where, and which volume is the wallet |
 
 Model and views are separate on purpose. An element is declared once and appears
 in as many views as are useful, each view choosing its own subset and layout —
@@ -37,6 +38,7 @@ without being described twice.
 | `ports-view` | every protocol a deployment satisfies, and what satisfies it today |
 | `integration-view` | one picture of every external system and which way each integration runs |
 | `invoice-lifecycle-view` | what moves an invoice, including the transitions that move it nowhere |
+| `deployment-view` | what runs where in `docker-compose.yml`, and which volume is worth backing up |
 
 ## Rendering the PlantUML
 
