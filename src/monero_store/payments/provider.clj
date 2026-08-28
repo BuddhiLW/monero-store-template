@@ -155,14 +155,7 @@
   "Decide what a Settlement means under its provider's profile.
 
   Pure, and open for extension: every threshold comes from the profile, so a
-  new rail needs no change here. The order of the clauses is the policy —
-  a failure is a failure whatever arrived; a double spend that leaves the
-  invoice short is `:settle/suspect` rather than an indefinite wait; no money
-  at all is pending rather than underpaid; and a shortfall outranks a
-  confirmation count because money that never came cannot be waited for.
-
-  A rejected transfer never blocks money that did arrive: the shortfall is
-  judged first, so a double spend alongside a covering payment still grants."
+  new rail needs no change here. The order of the clauses is the policy."
   [rails {:settlement/keys [status paid-amount expected-amount confirmations suspect?] :as settlement}]
   (let [{:provider/keys [min-confirmations underpay-tolerance]
          :or {min-confirmations 0 underpay-tolerance 0}}

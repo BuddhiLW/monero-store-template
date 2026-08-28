@@ -33,16 +33,12 @@
 (defn settlement-of
   "Normalize a WalletObservation into a Settlement for `provider-id`. Pure.
 
-  `expected-amount` is the invoice's authoritative amount in atomic units —
-  never the wallet's idea of what was expected. Transfers the daemon has
-  flagged as double spends contribute neither funds nor confirmations, and are
-  reported as `:settlement/suspect?`: money that arrived and was rejected does
-  not look the same as money that never came. The payment is `:settled` once
-  every contributing transfer is unlocked; how many confirmations that requires
-  is the profile's decision, not this function's.
+  `expected-amount` is the invoice's authoritative amount in atomic units.
+  Transfers flagged as double spends contribute neither funds nor
+  confirmations, and are reported as `:settlement/suspect?`. The payment is
+  `:settled` once every contributing transfer is unlocked.
 
-  When the wallet also reports its own unlocked total, the smaller of the two
-  wins: a wallet more permissive than this store can never widen the gate."
+  When the wallet reports its own unlocked total, the smaller of the two wins."
   [provider-id observation expected-amount]
   (let [seen (:wallet/transfers observation)
         transfers (remove :transfer/double-spend? seen)

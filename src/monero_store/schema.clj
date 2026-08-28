@@ -144,13 +144,9 @@
 (def Settlement
   "Normalized result of interpreting what a rail has seen.
 
-  `:settlement/references` names the individual movements behind the amount —
-  transaction hashes for a chain, an event id for a processor — so the same
-  money seen twice is recognizable as the same money.
-
-  `:settlement/suspect?` says a movement was seen and rejected — a transfer the
-  daemon flagged as a double spend. It contributes no funds, so it is invisible
-  in the amount; a rail that cannot observe such a thing omits the key."
+  `:settlement/references` names the individual movements behind the amount.
+  `:settlement/suspect?` says a movement was seen and rejected; it contributes
+  no funds, and a rail that cannot observe such a thing omits the key."
   [:map {:closed true}
    [:settlement/provider ProviderId]
    [:settlement/external-ref NonBlank]
@@ -282,11 +278,7 @@
 ;; decisions
 
 (def SettlementOutcome
-  "A SettlementOutcome ADT value.
-
-  The variants are read off the sum itself, never restated: a variant added to
-  `adt/SettlementOutcome` is in force here without this namespace being edited,
-  and cannot drift out of agreement with the `adt-case` that must cover it."
+  "A SettlementOutcome ADT value. Variants are read off the sum itself."
   [:map {:closed true}
    [:adt/type [:= :SettlementOutcome]]
    [:adt/variant (into [:enum] (sort (:variants adt/SettlementOutcome)))]])

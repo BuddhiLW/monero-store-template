@@ -32,10 +32,6 @@
                  symbol))
        sort))
 
-;; Loading every one of them is itself the guard. `all-ns` reports what has
-;; already been required, so a namespace no test happens to pull in is invisible
-;; to the coverage check below AND to the compiler — which is how a
-;; `monero-store.system` that could not load at all sat behind a green suite.
 (run! require (source-namespaces))
 
 (mi/instrument!)

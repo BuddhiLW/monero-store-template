@@ -187,16 +187,11 @@
 (defn settle!
   "Apply `settlement` to the invoice behind it.
 
-  Money that arrives against an invoice that was already paid, or whose quote
-  has lapsed, is recorded and reported as `:settle/late` rather than applied —
-  it is real money belonging to a known customer, and an operator makes them
-  whole. Swallowing it silently is not an option a chain payment lets anyone
-  take back.
+  Money against an invoice that was already paid, or whose quote has lapsed, is
+  recorded and reported as `:settle/late` rather than applied. That decision is
+  made on the resolution alone.
 
-  `:settle/suspect` leaves the invoice open and changes no status: a rejected
-  transfer is not money, so there is nothing to apply — but it is reported on
-  every sweep, so an operator sees an invoice being paid with double spends
-  rather than one that merely looks unpaid.
+  `:settle/suspect` leaves the invoice open and changes no status.
 
   Returns the SettlementOutcome that was applied, or nil when `settlement` was
   produced by a rail other than the invoice's own."
@@ -204,12 +199,8 @@
   (when (= (:invoice/provider invoice) (:settlement/provider settlement))
     (let [now (now-fn)
           resolution (invoice/resolution invoice now)
-          recorded (record-observation! store invoice settlement resolution)
           report! (fn [outcome]
                     (when analytics
-                      ;; The arms come off the INVOICE, so a settlement that
-                      ;; arrives days later still lands against the experiment
-                      ;; that produced it.
                       (analytics/track! analytics
                                         (assoc (analytics/event :invoice/settled
                                                                 {:item (name (:invoice/item-id invoice))
@@ -218,7 +209,8 @@
                                                                  :amount (:settlement/paid-amount settlement)})
                                                :event/variants (get-in invoice [:invoice/metadata :variants]))))
                     outcome)]
-      (if (and (= :late resolution) recorded)
+      (record-observation! store invoice settlement resolution)
+      (if (= :late resolution)
         (report! (adt/settlement-outcome :settle/late))
         (let [outcome (provider/settle rails settlement)
               item (catalog/item (:invoice/item-id invoice))]

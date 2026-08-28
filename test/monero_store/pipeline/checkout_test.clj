@@ -62,14 +62,10 @@
         (is (inst? (:fulfilment/period-end grant)))))
 
     (testing "a redelivered settlement is acknowledged, and grants nothing"
-      ;; The same observation is not recorded twice, so the outcome is derived
-      ;; again and reported as the grant it is — but the claim has already been
-      ;; taken, so nothing is handed over a second time. That is the whole
-      ;; point of gating on the transition rather than on the notice.
       (let [again (checkout/settle! deps
                                     (store/invoice-by-id (:store deps) (:invoice/id invoice))
                                     (provider/polled-settlement (:rails deps) invoice))]
-        (is (= :settle/grant (:adt/variant again)))
+        (is (= :settle/late (:adt/variant again)))
         (is (= 1 (count @(:granted deps))))
         (is (= 1 (count (store/payments-for (:store deps) (:invoice/id invoice)))))))))
 
@@ -104,6 +100,22 @@
 
     (testing "the ledger still records that the money was seen"
       (is (= 1 (count (store/payments-for (:store deps) (:invoice/id invoice))))))))
+
+(deftest a-lapsed-quote-is-not-granted-by-a-redelivered-notice
+  (let [clock (atom (Date.))
+        deps (support/deps {:now-fn #(deref clock)})
+        {:keys [invoice handle]} (open-monero! deps)]
+    (wallet/credit! (:wallet deps) (:handle/pay-to handle) (:invoice/amount invoice))
+    (reset! clock (Date. (+ (.getTime ^Date (:invoice/expires-at invoice)) 1000)))
+
+    (let [current (fn [] (store/invoice-by-id (:store deps) (:invoice/id invoice)))
+          settlement (provider/polled-settlement (:rails deps) invoice)
+          first-outcome (checkout/settle! deps (current) settlement)
+          second-outcome (checkout/settle! deps (current) settlement)]
+      (is (= :settle/late (:adt/variant first-outcome)))
+      (is (= :settle/late (:adt/variant second-outcome)))
+      (is (= 0 (count @(:granted deps))))
+      (is (not= :paid (:invoice/status (current)))))))
 
 (deftest late-money-is-recorded-not-swallowed
   (let [deps (support/deps)
