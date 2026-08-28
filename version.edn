@@ -1,0 +1,13 @@
+{:lib      io.github.buddhilw/monero-store
+ :minor    1
+ :license  {:name "MIT" :url "https://opensource.org/licenses/MIT"}
+ :scm-url  "https://github.com/BuddhiLW/monero-store-template"
+
+ ;; The core only. Every payment-SDK adapter lives on its own source root
+ ;; behind its own alias and is NOT published here, so a consumer of this
+ ;; coordinate inherits the money path and zero vendor jars.
+ :src-dirs ["src" "resources"]
+
+ ;; :none until the publication target is chosen. `install` still works and
+ ;; is what proves the artifact resolves.
+ :publish  :none}

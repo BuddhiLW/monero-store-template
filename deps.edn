@@ -97,5 +97,22 @@
                       "--middleware" "[cider.nrepl/cider-middleware]"
                       "--port" "7930"]}
 
-  :build {:deps {io.github.clojure/tools.build {:mvn/version "0.10.9"}}
-          :ns-default build}}}
+  ;; ----------------------------------------------------------------- release
+  ;; The APPLICATION artifact: one deployable process, carrying the rails its
+  ;; :aliases name. `clojure -T:uberjar uber :aliases '[:stripe :jdbc]'`.
+  :uberjar {:deps {io.github.clojure/tools.build {:mvn/version "0.10.9"}}
+            :ns-default build}
+
+  ;; The LIBRARY artifact: this store's money path, for a project that wants
+  ;; to embed it rather than reimplement it. Coordinates come from
+  ;; ./version.edn, the version from ./VERSION, and the task names are the
+  ;; fleet's — `clean jar install bump deploy` mean here what they mean in
+  ;; every other hive package.
+  ;;
+  ;;   clojure -T:build install     -> ~/.m2, for a consumer to resolve
+  ;;
+  ;; A SOURCE jar, deliberately: the protocols in payments.provider and
+  ;; collect.* are what a consumer implements, and an AOT'd record compiled
+  ;; against a source-shipped protocol fails to link at the consumer's loader.
+  :build {:deps {io.github.hive-agi/hive-build {:mvn/version "0.1.10"}}
+          :ns-default hive-build.api}}}
