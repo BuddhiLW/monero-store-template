@@ -193,6 +193,11 @@
   whole. Swallowing it silently is not an option a chain payment lets anyone
   take back.
 
+  `:settle/suspect` leaves the invoice open and changes no status: a rejected
+  transfer is not money, so there is nothing to apply — but it is reported on
+  every sweep, so an operator sees an invoice being paid with double spends
+  rather than one that merely looks unpaid.
+
   Returns the SettlementOutcome that was applied, or nil when `settlement` was
   produced by a rail other than the invoice's own."
   [{:keys [store rails analytics now-fn] :or {now-fn #(Date.)} :as deps} invoice settlement]
@@ -226,6 +231,9 @@
 
             :settle/reject
             (do (store/set-invoice-status! store (:invoice/id invoice) :failed) (report! outcome))
+
+            :settle/suspect
+            (report! outcome)
 
             :settle/late
             (report! outcome)

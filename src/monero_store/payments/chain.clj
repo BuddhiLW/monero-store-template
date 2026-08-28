@@ -35,14 +35,17 @@
 
   `expected-amount` is the invoice's authoritative amount in atomic units —
   never the wallet's idea of what was expected. Transfers the daemon has
-  flagged as double spends contribute neither funds nor confirmations. The
-  payment is `:settled` once every contributing transfer is unlocked; how many
-  confirmations that requires is the profile's decision, not this function's.
+  flagged as double spends contribute neither funds nor confirmations, and are
+  reported as `:settlement/suspect?`: money that arrived and was rejected does
+  not look the same as money that never came. The payment is `:settled` once
+  every contributing transfer is unlocked; how many confirmations that requires
+  is the profile's decision, not this function's.
 
   When the wallet also reports its own unlocked total, the smaller of the two
   wins: a wallet more permissive than this store can never widen the gate."
   [provider-id observation expected-amount]
-  (let [transfers (remove :transfer/double-spend? (:wallet/transfers observation))
+  (let [seen (:wallet/transfers observation)
+        transfers (remove :transfer/double-spend? seen)
         counted (reduce + 0 (map :transfer/amount transfers))
         unlocked (:wallet/unlocked-amount observation)
         paid (if (and unlocked (seq transfers)) (min counted (long unlocked)) counted)
@@ -56,6 +59,7 @@
      :settlement/paid-amount paid
      :settlement/expected-amount (long expected-amount)
      :settlement/confirmations confirmations
+     :settlement/suspect? (boolean (some :transfer/double-spend? seen))
      :settlement/references (mapv :transfer/tx-hash transfers)}))
 
 (defn- observe-settlement

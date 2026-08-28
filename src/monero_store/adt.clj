@@ -17,6 +17,7 @@
   :settle/grant
   :settle/pending
   :settle/underpaid
+  :settle/suspect
   :settle/late
   :settle/reject)
 

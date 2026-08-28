@@ -68,6 +68,27 @@
   (testing "overpayment grants; the surplus is an operator's problem, not a refusal"
     (is (= :settle/grant (outcome :strict {:settlement/paid-amount 1500})))))
 
+(deftest a-double-spend-that-leaves-a-shortfall-is-suspect-not-silence
+  (testing "a rejected transfer and nothing else is not an invoice nobody paid"
+    (is (= :settle/pending (outcome :strict {:settlement/paid-amount 0})))
+    (is (= :settle/suspect (outcome :strict {:settlement/paid-amount 0
+                                             :settlement/suspect? true}))))
+
+  (testing "an operator hears about it while the invoice is still short"
+    (is (= :settle/suspect (outcome :strict {:settlement/paid-amount 500
+                                             :settlement/suspect? true}))))
+
+  (testing "money that did arrive is never held hostage by money that did not"
+    (is (= :settle/grant (outcome :strict {:settlement/paid-amount 1000
+                                           :settlement/suspect? true})))
+    (is (= :settle/grant (outcome :lenient {:settlement/paid-amount 997
+                                            :settlement/suspect? true}))))
+
+  (testing "a failure still outranks it"
+    (is (= :settle/reject (outcome :strict {:settlement/status :failed
+                                            :settlement/paid-amount 0
+                                            :settlement/suspect? true})))))
+
 (deftest a-profile-says-what-may-be-asked-of-a-rail
   (is (true? (provider/webhook-settleable? rails :strict)))
   (is (false? (provider/webhook-settleable? rails :offline)))

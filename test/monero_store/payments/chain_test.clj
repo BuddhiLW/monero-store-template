@@ -36,7 +36,14 @@
                                                               :transfer/double-spend? true})])
                                      2000)]
     (is (= 1000 (:settlement/paid-amount settled)))
-    (is (= ["tx-1"] (:settlement/references settled)))))
+    (is (= ["tx-1"] (:settlement/references settled)))
+    (testing "but it is not invisible: money seen and rejected is reported"
+      (is (true? (:settlement/suspect? settled)))
+      (is (= settled (schema/check! schema/Settlement settled)))))
+
+  (testing "an observation with nothing flagged says so plainly"
+    (is (false? (:settlement/suspect?
+                 (chain/settlement-of :monero (observation [(transfer {})]) 1000))))))
 
 (deftest a-locked-transfer-is-not-settled-yet
   (let [settled (chain/settlement-of :monero

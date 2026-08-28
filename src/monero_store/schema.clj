@@ -6,6 +6,7 @@
   knows, so adding one never edits this namespace."
   (:require [malli.core :as m]
             [malli.error :as me]
+            [monero-store.adt :as adt]
             [monero-store.currency :as currency]))
 
 ;; ---------------------------------------------------------------------------
@@ -145,7 +146,11 @@
 
   `:settlement/references` names the individual movements behind the amount —
   transaction hashes for a chain, an event id for a processor — so the same
-  money seen twice is recognizable as the same money."
+  money seen twice is recognizable as the same money.
+
+  `:settlement/suspect?` says a movement was seen and rejected — a transfer the
+  daemon flagged as a double spend. It contributes no funds, so it is invisible
+  in the amount; a rail that cannot observe such a thing omits the key."
   [:map {:closed true}
    [:settlement/provider ProviderId]
    [:settlement/external-ref NonBlank]
@@ -153,6 +158,7 @@
    [:settlement/paid-amount [:int {:min 0}]]
    [:settlement/expected-amount [:int {:min 0}]]
    [:settlement/confirmations [:int {:min 0}]]
+   [:settlement/suspect? {:optional true} :boolean]
    [:settlement/references {:optional true} [:sequential NonBlank]]])
 
 (def PaymentResolution
@@ -276,16 +282,20 @@
 ;; decisions
 
 (def SettlementOutcome
-  "A SettlementOutcome ADT value."
+  "A SettlementOutcome ADT value.
+
+  The variants are read off the sum itself, never restated: a variant added to
+  `adt/SettlementOutcome` is in force here without this namespace being edited,
+  and cannot drift out of agreement with the `adt-case` that must cover it."
   [:map {:closed true}
    [:adt/type [:= :SettlementOutcome]]
-   [:adt/variant [:enum :settle/grant :settle/pending :settle/underpaid :settle/late :settle/reject]]])
+   [:adt/variant (into [:enum] (sort (:variants adt/SettlementOutcome)))]])
 
 (def CheckoutState
-  "A CheckoutState ADT value."
+  "A CheckoutState ADT value. Its variants come from the sum, as above."
   [:map {:closed true}
    [:adt/type [:= :CheckoutState]]
-   [:adt/variant [:enum :checkout/awaiting :checkout/paid :checkout/expired]]])
+   [:adt/variant (into [:enum] (sort (:variants adt/CheckoutState)))]])
 
 (def Fulfilment
   "What the host application was told to hand over, and when."

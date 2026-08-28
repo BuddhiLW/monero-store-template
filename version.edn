@@ -1,5 +1,5 @@
 {:lib      io.github.buddhilw/monero-store
- :minor    1
+ :minor    2
  :license  {:name "MIT" :url "https://opensource.org/licenses/MIT"}
  :scm-url  "https://github.com/BuddhiLW/monero-store-template"
 
