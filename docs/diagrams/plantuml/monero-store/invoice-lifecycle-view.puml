@@ -1,0 +1,31 @@
+@startuml invoice-lifecycle-view
+
+
+
+
+
+
+title Invoice lifecycle
+
+  state "expired" as moneroStore_invoiceExpired
+  state moneroStore_invoiceEnd <<end>>
+  state "underpaid" as moneroStore_invoiceUnderpaid
+  state "paid" as moneroStore_invoicePaid
+  state "pending" as moneroStore_invoicePending
+  state "failed" as moneroStore_invoiceFailed
+  state moneroStore_invoiceStart <<start>>
+moneroStore_invoicePending --> moneroStore_invoicePending : :settle/suspect — a double spend left it short; reported, status unchanged
+moneroStore_invoiceUnderpaid --> moneroStore_invoiceExpired : the sweep retires a partly-paid quote
+moneroStore_invoicePending --> moneroStore_invoiceUnderpaid : :settle/underpaid — a shortfall beyond the profile's tolerance
+moneroStore_invoicePending --> moneroStore_invoicePending : :settle/pending — nothing yet, or not enough confirmations
+moneroStore_invoicePending --> moneroStore_invoicePaid : :settle/grant — covered, deep enough, and this caller won the claim
+moneroStore_invoicePaid --> moneroStore_invoiceEnd : fulfilled
+moneroStore_invoiceStart --> moneroStore_invoicePending : open! — quoted once, in the rail's own currency
+moneroStore_invoiceExpired --> moneroStore_invoiceEnd : retired
+moneroStore_invoiceUnderpaid --> moneroStore_invoicePaid : :settle/grant — the rest of the money arrived
+moneroStore_invoiceExpired --> moneroStore_invoiceExpired : :settle/late — recorded for an operator, never applied
+moneroStore_invoicePaid --> moneroStore_invoicePaid : :settle/late — a redelivered notice grants nothing
+moneroStore_invoicePending --> moneroStore_invoiceExpired : the sweep retires a quote nobody covered
+moneroStore_invoiceFailed --> moneroStore_invoiceEnd : closed
+moneroStore_invoicePending --> moneroStore_invoiceFailed : :settle/reject — the rail reported failure
+@enduml

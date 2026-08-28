@@ -115,5 +115,7 @@
   ;; collect.* are what a consumer implements, and an AOT'd record compiled
   ;; against a source-shipped protocol fails to link at the consumer's loader.
   :build {:deps {io.github.hive-agi/hive-build {:mvn/version "0.1.10"}}
-          :ns-default hive-build.api}}
+          :ns-default hive-build.api}
+  :arch {:extra-deps {org.soulspace.clj/overarch {:mvn/version "0.41.0"}}
+                 :main-opts ["-m" "org.soulspace.overarch.adapter.ui.cli"]}}
  :mvn/repos {"hive-gitea" {:url "https://gitea.hive-mcp.com/api/packages/hive-agi/maven"}}}

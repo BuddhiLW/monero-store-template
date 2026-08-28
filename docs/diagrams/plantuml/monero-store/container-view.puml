@@ -1,0 +1,38 @@
+@startuml container-view
+!include <C4/C4_Container.puml>
+!include <awslib14/AWSCommon>
+!include <awslib14/AWSC4Integration>
+!include <azure/AzureCommon>
+!include <azure/AzureC4Integration>
+!include <tupadr3/common>
+!include <tupadr3/devicons/clojure>
+
+
+
+
+
+
+
+title Containers — monero-store
+Container(moneroStore_storefront, "Storefront", $descr="Lists the catalogue, opens a checkout, shows an address and what is still owed, and re-reads the invoice while it can still change.", $techn="ClojureScript, reagent")
+Container(moneroStore_promote, "Promote (pure)", $descr="What a price, a quote and an invoice mean. No I/O, no clock of its own.", $techn="Clojure", $sprite="clojure")
+Container(moneroStore_pipeline, "Pipeline", $descr="open!, settle!, grant! and the reconciliation sweep. Owns the exactly-once transition and the late-money rule.", $techn="Clojure", $sprite="clojure")
+Container(moneroStore_payments, "Payment rails", $descr="IPaymentRail, the rail registry, and the settlement decision read off a ProviderProfile.", $techn="Clojure", $sprite="clojure")
+Container(moneroStore_orderStore, "Order store", $descr="Invoices, customers and the payment ledger. In-memory by default; PostgreSQL behind the :jdbc alias.", $techn="IOrderStore")
+System_Ext(moneroStore_hostApplication, "Host application", $descr="Owns identity and entitlement. The store decides whether money was good; the host decides what that buys.")
+Person(moneroStore_operator, "Operator", $descr="Handles money the store could not apply by machine: late payments, double spends, underpayments.")
+Container(moneroStore_httpBoundary, "HTTP boundary", $descr="The only namespaces that decide what leaves the process. Routes, wire projection, identity seam, SPA shell.", $techn="reitit, aleph")
+System_Ext(moneroStore_moneropay, "MoneroPay", $descr="Watches a wallet on the store's behalf and posts an unsigned callback when it sees money.")
+Container(moneroStore_collect, "Collect (ports)", $descr="The protocols a deployment satisfies: order store, chain wallet, card gateway, rate source, fulfilment, HTTP, endpoint probe.", $techn="Clojure protocols")
+System_Ext(moneroStore_stripe, "Stripe", $descr="Hosted card checkout and signed webhooks.")
+System_Ext(moneroStore_postgres, "PostgreSQL", $descr="Durable order store. The default in-memory store forgets who paid.")
+Person(moneroStore_payer, "Payer", $descr="Buys an item and pays for it, in Monero or by card.")
+Rel_D(moneroStore_storefront, moneroStore_httpBoundary, "calls", $techn="JSON over HTTP")
+Rel_D(moneroStore_httpBoundary, moneroStore_pipeline, "opens and settles through")
+Rel_D(moneroStore_pipeline, moneroStore_payments, "asks what the money means")
+Rel(moneroStore_pipeline, moneroStore_promote, "prices and resolves through")
+Rel(moneroStore_pipeline, moneroStore_orderStore, "claims and records in", $techn="IOrderStore")
+Rel(moneroStore_pipeline, moneroStore_collect, "hands over through", $techn="IFulfilment")
+Rel(moneroStore_payments, moneroStore_collect, "observes money through", $techn="IChainWallet, ICardGateway")
+SHOW_LEGEND()
+@enduml

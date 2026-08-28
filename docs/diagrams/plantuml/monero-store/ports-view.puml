@@ -1,0 +1,36 @@
+@startuml ports-view
+!include <C4/C4_Component.puml>
+!include <awslib14/AWSCommon>
+!include <awslib14/AWSC4Integration>
+!include <azure/AzureCommon>
+!include <azure/AzureC4Integration>
+!include <tupadr3/common>
+
+
+
+
+
+
+
+title Components — the ports a deployment satisfies
+System_Ext(moneroStore_rateTickers, "Rate tickers", $descr="Independent public price sources. A quote needs several of them to agree.")
+Component(moneroStore_iRateSource, "IRateSource", $descr="Independent price readings for a currency pair.")
+System_Ext(moneroStore_hostApplication, "Host application", $descr="Owns identity and entitlement. The store decides whether money was good; the host decides what that buys.")
+Component(moneroStore_iEndpointProbe, "IEndpointProbe", $descr="Whether a service the store settles through can be reached, and which way it failed.")
+Component(moneroStore_iOrderStore, "IOrderStore", $descr="Persistence. Owns claim-paid!, the compare-and-set that tells exactly one caller it won.")
+System_Ext(moneroStore_moneropay, "MoneroPay", $descr="Watches a wallet on the store's behalf and posts an unsigned callback when it sees money.")
+Component(moneroStore_iCardGateway, "ICardGateway", $descr="Open a hosted checkout session and re-read it.")
+Component(moneroStore_iFulfilment, "IFulfilment", $descr="What a sale entitles someone to. The seam the host application implements; must be idempotent.")
+System_Ext(moneroStore_stripe, "Stripe", $descr="Hosted card checkout and signed webhooks.")
+Component(moneroStore_iChainWallet, "IChainWallet", $descr="Open an address, observe what has arrived at it. Satisfied by MoneroPay, a self-hosted monero-wallet-rpc, or a fake.")
+System_Ext(moneroStore_postgres, "PostgreSQL", $descr="Durable order store. The default in-memory store forgets who paid.")
+System_Ext(moneroStore_walletRpc, "monero-wallet-rpc", $descr="A Monero wallet the deployment runs itself.")
+Rel(moneroStore_moneropay, moneroStore_iChainWallet, "satisfies")
+Rel(moneroStore_walletRpc, moneroStore_iChainWallet, "satisfies")
+Rel(moneroStore_stripe, moneroStore_iCardGateway, "satisfies")
+Rel(moneroStore_postgres, moneroStore_iOrderStore, "satisfies")
+Rel(moneroStore_hostApplication, moneroStore_iFulfilment, "satisfies")
+Rel(moneroStore_rateTickers, moneroStore_iRateSource, "satisfies")
+Rel(moneroStore_iEndpointProbe, moneroStore_moneropay, "reports reachability of")
+SHOW_LEGEND()
+@enduml

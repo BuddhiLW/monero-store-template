@@ -1,0 +1,111 @@
+;;;;
+;;;; monero-store — the invoice lifecycle
+;;;;
+;;;; The states an invoice can hold and what moves it. Every transition out of
+;;;; :pending is a SettlementOutcome from payments.provider/settle, except
+;;;; expiry, which is the reconciliation sweep retiring a quote nobody paid.
+;;;;
+#{{:el :state-machine
+   :id :monero-store/invoice-lifecycle
+   :name "Invoice lifecycle"
+   :ct [{:el :start-state :id :monero-store/invoice-start}
+
+        {:el :state :id :monero-store/invoice-pending
+         :name "pending"
+         :desc "Opened and quoted. The amount is locked for one window."}
+
+        {:el :state :id :monero-store/invoice-underpaid
+         :name "underpaid"
+         :desc "Money arrived but did not cover the invoice. Still open — the rest completes it."}
+
+        {:el :state :id :monero-store/invoice-paid
+         :name "paid"
+         :desc "Terminal. Reached only through claim-paid!, the compare-and-set that tells exactly one caller it won."}
+
+        {:el :state :id :monero-store/invoice-expired
+         :name "expired"
+         :desc "The quote window closed with the invoice uncovered. Money arriving now is late, never applied."}
+
+        {:el :state :id :monero-store/invoice-failed
+         :name "failed"
+         :desc "The rail reported a failure. Whatever arrived, this is a rejection."}
+
+        {:el :end-state :id :monero-store/invoice-end}
+
+        ;; transitions
+        {:el :transition
+         :id :monero-store/t-open
+         :from :monero-store/invoice-start :to :monero-store/invoice-pending
+         :name "open! — quoted once, in the rail's own currency"}
+
+        {:el :transition
+         :id :monero-store/t-pending-grant
+         :from :monero-store/invoice-pending :to :monero-store/invoice-paid
+         :name ":settle/grant — covered, deep enough, and this caller won the claim"}
+
+        {:el :transition
+         :id :monero-store/t-pending-underpaid
+         :from :monero-store/invoice-pending :to :monero-store/invoice-underpaid
+         :name ":settle/underpaid — a shortfall beyond the profile's tolerance"}
+
+        {:el :transition
+         :id :monero-store/t-underpaid-grant
+         :from :monero-store/invoice-underpaid :to :monero-store/invoice-paid
+         :name ":settle/grant — the rest of the money arrived"}
+
+        {:el :transition
+         :id :monero-store/t-pending-reject
+         :from :monero-store/invoice-pending :to :monero-store/invoice-failed
+         :name ":settle/reject — the rail reported failure"}
+
+        {:el :transition
+         :id :monero-store/t-pending-expired
+         :from :monero-store/invoice-pending :to :monero-store/invoice-expired
+         :name "the sweep retires a quote nobody covered"}
+
+        {:el :transition
+         :id :monero-store/t-underpaid-expired
+         :from :monero-store/invoice-underpaid :to :monero-store/invoice-expired
+         :name "the sweep retires a partly-paid quote"}
+
+        {:el :transition
+         :id :monero-store/t-pending-suspect
+         :from :monero-store/invoice-pending :to :monero-store/invoice-pending
+         :name ":settle/suspect — a double spend left it short; reported, status unchanged"}
+
+        {:el :transition
+         :id :monero-store/t-pending-waiting
+         :from :monero-store/invoice-pending :to :monero-store/invoice-pending
+         :name ":settle/pending — nothing yet, or not enough confirmations"}
+
+        {:el :transition
+         :id :monero-store/t-expired-late
+         :from :monero-store/invoice-expired :to :monero-store/invoice-expired
+         :name ":settle/late — recorded for an operator, never applied"}
+
+        {:el :transition
+         :id :monero-store/t-paid-late
+         :from :monero-store/invoice-paid :to :monero-store/invoice-paid
+         :name ":settle/late — a redelivered notice grants nothing"}
+
+        {:el :transition
+         :id :monero-store/t-paid-end
+         :from :monero-store/invoice-paid :to :monero-store/invoice-end
+         :name "fulfilled"}
+
+        {:el :transition
+         :id :monero-store/t-failed-end
+         :from :monero-store/invoice-failed :to :monero-store/invoice-end
+         :name "closed"}
+
+        {:el :transition
+         :id :monero-store/t-expired-end
+         :from :monero-store/invoice-expired :to :monero-store/invoice-end
+         :name "retired"}]}
+
+  {:el :state-machine-view
+   :id :monero-store/invoice-lifecycle-view
+   :spec {:include :relations}
+   :title "Invoice lifecycle"
+   :desc "What moves an invoice, and the three transitions that deliberately move it nowhere: waiting, a double spend that left it short, and money that arrived too late to apply."
+   :ct [{:ref :monero-store/invoice-lifecycle}]}}

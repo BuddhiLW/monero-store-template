@@ -1,0 +1,40 @@
+@startuml integration-view
+!include <C4/C4_Context.puml>
+!include <awslib14/AWSCommon>
+!include <awslib14/AWSC4Integration>
+!include <azure/AzureCommon>
+!include <azure/AzureC4Integration>
+!include <tupadr3/common>
+!include <tupadr3/devicons/clojure>
+
+
+
+
+
+
+
+title Integrations — every system the money path touches
+System(moneroStore_store, "monero-store", $descr="Quote, charge, observe, settle, fulfil, reconcile. Provider-agnostic: a payment rail is a registry entry, not a branch.", $type="Clojure", $sprite="clojure")
+System_Ext(moneroStore_rateTickers, "Rate tickers", $descr="Independent public price sources. A quote needs several of them to agree.")
+System_Ext(moneroStore_hostApplication, "Host application", $descr="Owns identity and entitlement. The store decides whether money was good; the host decides what that buys.")
+Person(moneroStore_operator, "Operator", $descr="Handles money the store could not apply by machine: late payments, double spends, underpayments.")
+System_Ext(moneroStore_moneropay, "MoneroPay", $descr="Watches a wallet on the store's behalf and posts an unsigned callback when it sees money.")
+System_Ext(moneroStore_stripe, "Stripe", $descr="Hosted card checkout and signed webhooks.")
+System_Ext(moneroStore_postgres, "PostgreSQL", $descr="Durable order store. The default in-memory store forgets who paid.")
+Person(moneroStore_payer, "Payer", $descr="Buys an item and pays for it, in Monero or by card.")
+System_Ext(moneroStore_walletRpc, "monero-wallet-rpc", $descr="A Monero wallet the deployment runs itself.")
+System_Ext(moneroStore_analytics, "Analytics", $descr="Funnel counts. The event scrubber drops emails, addresses, transaction hashes and customer ids before any adapter sees them.")
+Rel(moneroStore_store, moneroStore_moneropay, "opens subaddresses and re-reads them", $techn="HTTP")
+Rel(moneroStore_store, moneroStore_walletRpc, "opens subaddresses and re-reads them", $techn="JSON-RPC")
+Rel(moneroStore_store, moneroStore_stripe, "opens checkout sessions and re-reads them", $techn="HTTPS")
+Rel(moneroStore_stripe, moneroStore_store, "posts signed settlement notices to", $techn="webhook")
+Rel(moneroStore_moneropay, moneroStore_store, "prompts a re-read of", $techn="unsigned callback")
+Rel(moneroStore_store, moneroStore_rateTickers, "reads independent prices from", $techn="HTTPS")
+Rel(moneroStore_store, moneroStore_postgres, "stores invoices and payments in", $techn="JDBC")
+Rel(moneroStore_store, moneroStore_analytics, "reports scrubbed funnel counts to", $techn="HTTPS")
+Rel(moneroStore_store, moneroStore_hostApplication, "hands fulfilment to", $techn="IFulfilment")
+Rel(moneroStore_hostApplication, moneroStore_store, "says who is asking", $techn="identify-fn")
+Rel(moneroStore_payer, moneroStore_store, "buys from", $techn="HTTPS")
+Rel(moneroStore_operator, moneroStore_store, "settles unapplied money through", $techn="HTTPS, operator token")
+SHOW_LEGEND()
+@enduml

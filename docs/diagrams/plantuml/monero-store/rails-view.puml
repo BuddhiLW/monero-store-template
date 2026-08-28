@@ -1,0 +1,32 @@
+@startuml rails-view
+!include <C4/C4_Component.puml>
+!include <awslib14/AWSCommon>
+!include <awslib14/AWSC4Integration>
+!include <azure/AzureCommon>
+!include <azure/AzureC4Integration>
+!include <tupadr3/common>
+
+
+
+
+
+
+
+title Components — the payment rails
+Component(moneroStore_stripeReader, "Stripe reader", $descr="Event names and key paths as data, plus signature verification. Authenticating a notice needs no vendor jar.")
+Component(moneroStore_settleDecision, "settle", $descr="Pure. Decides grant / pending / underpaid / suspect / late / reject from the settlement and the rail's profile. Every threshold is data, so a new rail changes nothing here.")
+Component(moneroStore_hostedRail, "Hosted-checkout rail", $descr="What every hosted processor does. Processor differences are a READER supplied as data, not another rail.")
+Component(moneroStore_chainRail, "Chain rail", $descr="Money arriving at an address the store watches. Correlation is by address; a notice is only ever a prompt to re-read the wallet.")
+Component(moneroStore_iCardGateway, "ICardGateway", $descr="Open a hosted checkout session and re-read it.")
+Component(moneroStore_railRegistry, "Rail registry", $descr="A VALUE, built at boot and carried in deps. Validates every ProviderProfile so a malformed rail fails where an operator is watching.")
+Component(moneroStore_iChainWallet, "IChainWallet", $descr="Open an address, observe what has arrived at it. Satisfied by MoneroPay, a self-hosted monero-wallet-rpc, or a fake.")
+Component(moneroStore_manualRail, "Manual rail", $descr="Operator-asserted grants. No HTTP surface at all.")
+Rel_D(moneroStore_railRegistry, moneroStore_chainRail, "registers")
+Rel_D(moneroStore_railRegistry, moneroStore_hostedRail, "registers")
+Rel_D(moneroStore_railRegistry, moneroStore_manualRail, "registers")
+Rel_R(moneroStore_settleDecision, moneroStore_railRegistry, "reads the profile from")
+Rel(moneroStore_hostedRail, moneroStore_stripeReader, "is configured by")
+Rel(moneroStore_chainRail, moneroStore_iChainWallet, "settles from")
+Rel(moneroStore_hostedRail, moneroStore_iCardGateway, "opens sessions through")
+SHOW_LEGEND()
+@enduml

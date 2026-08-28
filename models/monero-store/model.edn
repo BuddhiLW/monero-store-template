@@ -1,0 +1,312 @@
+;;;;
+;;;; monero-store — architecture model
+;;;;
+;;;; The C4 model of the store as data. Views live in views.edn; the invoice
+;;;; and settlement state machines in state.edn.
+;;;;
+#{;;; ------------------------------------------------------------------ actors
+
+  {:el :person
+   :id :monero-store/payer
+   :name "Payer"
+   :desc "Buys an item and pays for it, in Monero or by card."}
+
+  {:el :person
+   :id :monero-store/operator
+   :name "Operator"
+   :desc "Handles money the store could not apply by machine: late payments, double spends, underpayments."}
+
+  ;;; ----------------------------------------------------------- the system
+
+  {:el :system
+   :id :monero-store/store
+   :name "monero-store"
+   :desc "Quote, charge, observe, settle, fulfil, reconcile. Provider-agnostic: a payment rail is a registry entry, not a branch."
+   :tech "Clojure"
+   :ct [{:el :container
+         :id :monero-store/storefront
+         :name "Storefront"
+         :desc "Lists the catalogue, opens a checkout, shows an address and what is still owed, and re-reads the invoice while it can still change."
+         :tech "ClojureScript, reagent"}
+
+        {:el :container
+         :id :monero-store/http-boundary
+         :name "HTTP boundary"
+         :desc "The only namespaces that decide what leaves the process. Routes, wire projection, identity seam, SPA shell."
+         :tech "reitit, aleph"}
+
+        {:el :container
+         :id :monero-store/pipeline
+         :name "Pipeline"
+         :desc "open!, settle!, grant! and the reconciliation sweep. Owns the exactly-once transition and the late-money rule."
+         :tech "Clojure"}
+
+        {:el :container
+         :id :monero-store/payments
+         :name "Payment rails"
+         :desc "IPaymentRail, the rail registry, and the settlement decision read off a ProviderProfile."
+         :tech "Clojure"}
+
+        {:el :container
+         :id :monero-store/promote
+         :name "Promote (pure)"
+         :desc "What a price, a quote and an invoice mean. No I/O, no clock of its own."
+         :tech "Clojure"}
+
+        {:el :container
+         :id :monero-store/collect
+         :name "Collect (ports)"
+         :desc "The protocols a deployment satisfies: order store, chain wallet, card gateway, rate source, fulfilment, HTTP, endpoint probe."
+         :tech "Clojure protocols"}
+
+        {:el :container
+         :id :monero-store/order-store
+         :name "Order store"
+         :desc "Invoices, customers and the payment ledger. In-memory by default; PostgreSQL behind the :jdbc alias."
+         :tech "IOrderStore"}]}
+
+  ;;; --------------------------------------------------- payment components
+
+  {:el :component
+   :id :monero-store/rail-registry
+   :name "Rail registry"
+   :desc "A VALUE, built at boot and carried in deps. Validates every ProviderProfile so a malformed rail fails where an operator is watching."}
+
+  {:el :component
+   :id :monero-store/settle-decision
+   :name "settle"
+   :desc "Pure. Decides grant / pending / underpaid / suspect / late / reject from the settlement and the rail's profile. Every threshold is data, so a new rail changes nothing here."}
+
+  {:el :component
+   :id :monero-store/chain-rail
+   :name "Chain rail"
+   :desc "Money arriving at an address the store watches. Correlation is by address; a notice is only ever a prompt to re-read the wallet."}
+
+  {:el :component
+   :id :monero-store/hosted-rail
+   :name "Hosted-checkout rail"
+   :desc "What every hosted processor does. Processor differences are a READER supplied as data, not another rail."}
+
+  {:el :component
+   :id :monero-store/manual-rail
+   :name "Manual rail"
+   :desc "Operator-asserted grants. No HTTP surface at all."}
+
+  {:el :component
+   :id :monero-store/stripe-reader
+   :name "Stripe reader"
+   :desc "Event names and key paths as data, plus signature verification. Authenticating a notice needs no vendor jar."}
+
+  ;;; ------------------------------------------------------------ the ports
+
+  {:el :component
+   :id :monero-store/i-order-store
+   :name "IOrderStore"
+   :desc "Persistence. Owns claim-paid!, the compare-and-set that tells exactly one caller it won."}
+
+  {:el :component
+   :id :monero-store/i-chain-wallet
+   :name "IChainWallet"
+   :desc "Open an address, observe what has arrived at it. Satisfied by MoneroPay, a self-hosted monero-wallet-rpc, or a fake."}
+
+  {:el :component
+   :id :monero-store/i-card-gateway
+   :name "ICardGateway"
+   :desc "Open a hosted checkout session and re-read it."}
+
+  {:el :component
+   :id :monero-store/i-rate-source
+   :name "IRateSource"
+   :desc "Independent price readings for a currency pair."}
+
+  {:el :component
+   :id :monero-store/i-fulfilment
+   :name "IFulfilment"
+   :desc "What a sale entitles someone to. The seam the host application implements; must be idempotent."}
+
+  {:el :component
+   :id :monero-store/i-endpoint-probe
+   :name "IEndpointProbe"
+   :desc "Whether a service the store settles through can be reached, and which way it failed."}
+
+  ;;; ------------------------------------------------------ external systems
+
+  {:el :system
+   :id :monero-store/host-application
+   :name "Host application"
+   :desc "Owns identity and entitlement. The store decides whether money was good; the host decides what that buys."
+   :external true}
+
+  {:el :system
+   :id :monero-store/moneropay
+   :name "MoneroPay"
+   :desc "Watches a wallet on the store's behalf and posts an unsigned callback when it sees money."
+   :external true}
+
+  {:el :system
+   :id :monero-store/wallet-rpc
+   :name "monero-wallet-rpc"
+   :desc "A Monero wallet the deployment runs itself."
+   :external true}
+
+  {:el :system
+   :id :monero-store/stripe
+   :name "Stripe"
+   :desc "Hosted card checkout and signed webhooks."
+   :external true}
+
+  {:el :system
+   :id :monero-store/rate-tickers
+   :name "Rate tickers"
+   :desc "Independent public price sources. A quote needs several of them to agree."
+   :external true}
+
+  {:el :system
+   :id :monero-store/postgres
+   :name "PostgreSQL"
+   :desc "Durable order store. The default in-memory store forgets who paid."
+   :external true}
+
+  {:el :system
+   :id :monero-store/analytics
+   :name "Analytics"
+   :desc "Funnel counts. The event scrubber drops emails, addresses, transaction hashes and customer ids before any adapter sees them."
+   :external true}
+
+  ;;; ------------------------------------------------------------- relations
+
+  {:el :rel :id :monero-store/payer-uses-storefront
+   :from :monero-store/payer :to :monero-store/store
+   :name "buys from" :tech "HTTPS"}
+
+  {:el :rel :id :monero-store/operator-reconciles
+   :from :monero-store/operator :to :monero-store/store
+   :name "settles unapplied money through" :tech "HTTPS, operator token"}
+
+  {:el :rel :id :monero-store/store-grants-through-host
+   :from :monero-store/store :to :monero-store/host-application
+   :name "hands fulfilment to" :tech "IFulfilment"}
+
+  {:el :rel :id :monero-store/host-identifies
+   :from :monero-store/host-application :to :monero-store/store
+   :name "says who is asking" :tech "identify-fn"}
+
+  {:el :rel :id :monero-store/store-watches-moneropay
+   :from :monero-store/store :to :monero-store/moneropay
+   :name "opens subaddresses and re-reads them" :tech "HTTP"}
+
+  {:el :rel :id :monero-store/store-watches-wallet-rpc
+   :from :monero-store/store :to :monero-store/wallet-rpc
+   :name "opens subaddresses and re-reads them" :tech "JSON-RPC"}
+
+  {:el :rel :id :monero-store/store-opens-stripe-session
+   :from :monero-store/store :to :monero-store/stripe
+   :name "opens checkout sessions and re-reads them" :tech "HTTPS"}
+
+  {:el :rel :id :monero-store/stripe-notifies-store
+   :from :monero-store/stripe :to :monero-store/store
+   :name "posts signed settlement notices to" :tech "webhook"}
+
+  {:el :rel :id :monero-store/moneropay-notifies-store
+   :from :monero-store/moneropay :to :monero-store/store
+   :name "prompts a re-read of" :tech "unsigned callback"}
+
+  {:el :rel :id :monero-store/store-quotes-from-tickers
+   :from :monero-store/store :to :monero-store/rate-tickers
+   :name "reads independent prices from" :tech "HTTPS"}
+
+  {:el :rel :id :monero-store/store-persists
+   :from :monero-store/store :to :monero-store/postgres
+   :name "stores invoices and payments in" :tech "JDBC"}
+
+  {:el :rel :id :monero-store/store-reports
+   :from :monero-store/store :to :monero-store/analytics
+   :name "reports scrubbed funnel counts to" :tech "HTTPS"}
+
+  ;; container level
+
+  {:el :rel :id :monero-store/storefront-calls-boundary
+   :from :monero-store/storefront :to :monero-store/http-boundary
+   :name "calls" :tech "JSON over HTTP"}
+
+  {:el :rel :id :monero-store/boundary-drives-pipeline
+   :from :monero-store/http-boundary :to :monero-store/pipeline
+   :name "opens and settles through"}
+
+  {:el :rel :id :monero-store/pipeline-asks-payments
+   :from :monero-store/pipeline :to :monero-store/payments
+   :name "asks what the money means"}
+
+  {:el :rel :id :monero-store/pipeline-reads-promote
+   :from :monero-store/pipeline :to :monero-store/promote
+   :name "prices and resolves through"}
+
+  {:el :rel :id :monero-store/pipeline-writes-store
+   :from :monero-store/pipeline :to :monero-store/order-store
+   :name "claims and records in" :tech "IOrderStore"}
+
+  {:el :rel :id :monero-store/pipeline-fulfils
+   :from :monero-store/pipeline :to :monero-store/collect
+   :name "hands over through" :tech "IFulfilment"}
+
+  {:el :rel :id :monero-store/payments-observes-through-collect
+   :from :monero-store/payments :to :monero-store/collect
+   :name "observes money through" :tech "IChainWallet, ICardGateway"}
+
+  ;; component level
+
+  {:el :rel :id :monero-store/registry-holds-chain
+   :from :monero-store/rail-registry :to :monero-store/chain-rail
+   :name "registers"}
+
+  {:el :rel :id :monero-store/registry-holds-hosted
+   :from :monero-store/rail-registry :to :monero-store/hosted-rail
+   :name "registers"}
+
+  {:el :rel :id :monero-store/registry-holds-manual
+   :from :monero-store/rail-registry :to :monero-store/manual-rail
+   :name "registers"}
+
+  {:el :rel :id :monero-store/settle-reads-registry
+   :from :monero-store/settle-decision :to :monero-store/rail-registry
+   :name "reads the profile from"}
+
+  {:el :rel :id :monero-store/hosted-reads-stripe
+   :from :monero-store/hosted-rail :to :monero-store/stripe-reader
+   :name "is configured by"}
+
+  {:el :rel :id :monero-store/chain-uses-wallet
+   :from :monero-store/chain-rail :to :monero-store/i-chain-wallet
+   :name "settles from"}
+
+  {:el :rel :id :monero-store/hosted-uses-gateway
+   :from :monero-store/hosted-rail :to :monero-store/i-card-gateway
+   :name "opens sessions through"}
+
+  {:el :rel :id :monero-store/moneropay-satisfies-wallet
+   :from :monero-store/moneropay :to :monero-store/i-chain-wallet
+   :name "satisfies"}
+
+  {:el :rel :id :monero-store/wallet-rpc-satisfies-wallet
+   :from :monero-store/wallet-rpc :to :monero-store/i-chain-wallet
+   :name "satisfies"}
+
+  {:el :rel :id :monero-store/stripe-satisfies-gateway
+   :from :monero-store/stripe :to :monero-store/i-card-gateway
+   :name "satisfies"}
+
+  {:el :rel :id :monero-store/postgres-satisfies-store
+   :from :monero-store/postgres :to :monero-store/i-order-store
+   :name "satisfies"}
+
+  {:el :rel :id :monero-store/host-satisfies-fulfilment
+   :from :monero-store/host-application :to :monero-store/i-fulfilment
+   :name "satisfies"}
+
+  {:el :rel :id :monero-store/tickers-satisfy-rate-source
+   :from :monero-store/rate-tickers :to :monero-store/i-rate-source
+   :name "satisfies"}
+
+  {:el :rel :id :monero-store/probe-checks-moneropay
+   :from :monero-store/i-endpoint-probe :to :monero-store/moneropay
+   :name "reports reachability of"}}

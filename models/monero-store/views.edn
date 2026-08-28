@@ -1,0 +1,142 @@
+;;;;
+;;;; monero-store — C4 views
+;;;;
+#{;;; ------------------------------------------------------------- C1 context
+
+  {:el :context-view
+   :id :monero-store/context-view
+   :title "System Context — monero-store"
+   :desc "Who the store serves, and every system it depends on to take money."
+   :ct [{:ref :monero-store/payer}
+        {:ref :monero-store/operator}
+        {:ref :monero-store/store}
+        {:ref :monero-store/host-application}
+        {:ref :monero-store/moneropay}
+        {:ref :monero-store/wallet-rpc}
+        {:ref :monero-store/stripe}
+        {:ref :monero-store/rate-tickers}
+        {:ref :monero-store/postgres}
+        {:ref :monero-store/analytics}
+
+        {:ref :monero-store/payer-uses-storefront :direction :down}
+        {:ref :monero-store/operator-reconciles :direction :down}
+        {:ref :monero-store/store-grants-through-host :direction :right}
+        {:ref :monero-store/host-identifies :direction :left}
+        {:ref :monero-store/store-watches-moneropay}
+        {:ref :monero-store/store-watches-wallet-rpc}
+        {:ref :monero-store/store-opens-stripe-session}
+        {:ref :monero-store/stripe-notifies-store}
+        {:ref :monero-store/moneropay-notifies-store}
+        {:ref :monero-store/store-quotes-from-tickers}
+        {:ref :monero-store/store-persists}
+        {:ref :monero-store/store-reports}]}
+
+  ;;; ----------------------------------------------------------- C2 container
+
+  {:el :container-view
+   :id :monero-store/container-view
+   :title "Containers — monero-store"
+   :desc "The CPPB strata as deployable parts. Dependencies point downward: boundary to pipeline, pipeline to promote and collect, and never back."
+   :ct [{:ref :monero-store/payer}
+        {:ref :monero-store/operator}
+        {:ref :monero-store/host-application}
+        {:ref :monero-store/moneropay}
+        {:ref :monero-store/stripe}
+        {:ref :monero-store/postgres}
+
+        {:ref :monero-store/storefront}
+        {:ref :monero-store/http-boundary}
+        {:ref :monero-store/pipeline}
+        {:ref :monero-store/payments}
+        {:ref :monero-store/promote}
+        {:ref :monero-store/collect}
+        {:ref :monero-store/order-store}
+
+        {:ref :monero-store/storefront-calls-boundary :direction :down}
+        {:ref :monero-store/boundary-drives-pipeline :direction :down}
+        {:ref :monero-store/pipeline-asks-payments :direction :down}
+        {:ref :monero-store/pipeline-reads-promote}
+        {:ref :monero-store/pipeline-writes-store}
+        {:ref :monero-store/pipeline-fulfils}
+        {:ref :monero-store/payments-observes-through-collect}
+        {:ref :monero-store/store-grants-through-host}
+        {:ref :monero-store/store-persists}]}
+
+  ;;; ---------------------------------------------------------- C3 components
+
+  {:el :component-view
+   :id :monero-store/rails-view
+   :title "Components — the payment rails"
+   :desc "The DIP seam. A rail is an IPaymentRail plus a ProviderProfile in a registry; settle reads the profile and never branches on which rail it is, so adding a rail edits nothing here."
+   :ct [{:ref :monero-store/rail-registry}
+        {:ref :monero-store/settle-decision}
+        {:ref :monero-store/chain-rail}
+        {:ref :monero-store/hosted-rail}
+        {:ref :monero-store/manual-rail}
+        {:ref :monero-store/stripe-reader}
+        {:ref :monero-store/i-chain-wallet}
+        {:ref :monero-store/i-card-gateway}
+
+        {:ref :monero-store/registry-holds-chain :direction :down}
+        {:ref :monero-store/registry-holds-hosted :direction :down}
+        {:ref :monero-store/registry-holds-manual :direction :down}
+        {:ref :monero-store/settle-reads-registry :direction :right}
+        {:ref :monero-store/hosted-reads-stripe}
+        {:ref :monero-store/chain-uses-wallet}
+        {:ref :monero-store/hosted-uses-gateway}]}
+
+  {:el :component-view
+   :id :monero-store/ports-view
+   :title "Components — the ports a deployment satisfies"
+   :desc "Everything the store refuses to decide for you. Each port has at least one shipped adapter and one fake, so the whole money path runs with no daemon, no processor account and no coin."
+   :ct [{:ref :monero-store/i-order-store}
+        {:ref :monero-store/i-chain-wallet}
+        {:ref :monero-store/i-card-gateway}
+        {:ref :monero-store/i-rate-source}
+        {:ref :monero-store/i-fulfilment}
+        {:ref :monero-store/i-endpoint-probe}
+
+        {:ref :monero-store/moneropay}
+        {:ref :monero-store/wallet-rpc}
+        {:ref :monero-store/stripe}
+        {:ref :monero-store/postgres}
+        {:ref :monero-store/rate-tickers}
+        {:ref :monero-store/host-application}
+
+        {:ref :monero-store/moneropay-satisfies-wallet}
+        {:ref :monero-store/wallet-rpc-satisfies-wallet}
+        {:ref :monero-store/stripe-satisfies-gateway}
+        {:ref :monero-store/postgres-satisfies-store}
+        {:ref :monero-store/host-satisfies-fulfilment}
+        {:ref :monero-store/tickers-satisfy-rate-source}
+        {:ref :monero-store/probe-checks-moneropay}]}
+
+  ;;; ------------------------------------------------------------- integration
+
+  {:el :system-landscape-view
+   :id :monero-store/integration-view
+   :title "Integrations — every system the money path touches"
+   :desc "One picture of what has to exist outside the store for it to take money, and which direction each integration runs."
+   :ct [{:ref :monero-store/payer}
+        {:ref :monero-store/operator}
+        {:ref :monero-store/store}
+        {:ref :monero-store/host-application}
+        {:ref :monero-store/moneropay}
+        {:ref :monero-store/wallet-rpc}
+        {:ref :monero-store/stripe}
+        {:ref :monero-store/rate-tickers}
+        {:ref :monero-store/postgres}
+        {:ref :monero-store/analytics}
+
+        {:ref :monero-store/store-watches-moneropay}
+        {:ref :monero-store/store-watches-wallet-rpc}
+        {:ref :monero-store/store-opens-stripe-session}
+        {:ref :monero-store/stripe-notifies-store}
+        {:ref :monero-store/moneropay-notifies-store}
+        {:ref :monero-store/store-quotes-from-tickers}
+        {:ref :monero-store/store-persists}
+        {:ref :monero-store/store-reports}
+        {:ref :monero-store/store-grants-through-host}
+        {:ref :monero-store/host-identifies}
+        {:ref :monero-store/payer-uses-storefront}
+        {:ref :monero-store/operator-reconciles}]}}
