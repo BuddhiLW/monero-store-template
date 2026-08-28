@@ -36,10 +36,26 @@ jobs:
       - name: Test
         run: clojure -M:test
 
+      # Without the Clojars secrets the deploy cannot succeed, and a bump that
+      # tags a version nothing publishes is worse than no release at all.
+      - name: Can we publish?
+        id: creds
+        env:
+          CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
+        run: |
+          if [ -n "$CLOJARS_USERNAME" ]; then
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::CLOJARS_USERNAME is unset — tested, not released."
+          fi
+
       - name: Bump patch version
+        if: steps.creds.outputs.ok == 'true'
         run: clojure -T:build bump :level :patch
 
       - name: Commit and tag
+        if: steps.creds.outputs.ok == 'true'
         run: |
           VER=$(cat VERSION)
           git config user.name  "hive-ci"
@@ -53,6 +69,7 @@ jobs:
           git push --follow-tags
 
       - name: Deploy
+        if: steps.creds.outputs.ok == 'true'
         env:
           CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
           CLOJARS_PASSWORD: ${{ secrets.CLOJARS_DEPLOY_TOKEN }}
