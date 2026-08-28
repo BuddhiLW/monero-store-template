@@ -325,6 +325,60 @@ the reference on the payment as `operator:<reference>`.
 The 201 body's `outcome` is the settlement outcome the grant produced, not a
 promise that it granted.
 
+### Reachability
+
+`GET /api/admin/reachability`, behind `ADMIN_TOKEN` like the rest of this
+section. The hosts and ports a store talks to are not public.
+
+It opens a TCP connection to every service the deployment is configured to
+reach, closes it, and reports what happened. `200` when all of them answered,
+`503` when any did not.
+
+| Field | Means |
+|---|---|
+| `ok` | every endpoint accepted a connection |
+| `checked` | how many were probed — `0` means nothing is configured, not that all is well |
+| `unreachable` | how many did not answer |
+| `endpoints[].outcome` | `open`, `refused`, `timeout`, `unknown-host` or `error` |
+| `endpoints[].elapsed-ms` | how long the connect took, which is how a slow path shows |
+| `endpoints[].detail` | the exception message, or `null` |
+
+**`refused` and `timeout` are different diagnoses.** A refusal is a service
+that answered by saying no: it is running somewhere and the port is closed, or
+nothing is bound. A timeout is a path that never answered at all, which is
+what a dropped packet looks like — usually a firewall, a NetworkPolicy or a
+security group rather than the service. Do not treat them as one alarm.
+
+Which endpoints appear is decided by the configuration, not by a list in this
+document: `MONEROPAY_URL` when `MONERO_BACKEND=moneropay`,
+`MONERO_WALLET_RPC_URI` when it is `wallet-rpc`, `DATABASE_URL` when
+`STORE_BACKEND=jdbc`, Stripe when `CARDS_BACKEND=stripe`, and `UMAMI_URL` when
+`ANALYTICS=umami`. A rail you have not configured is not probed, so a store
+selling only through the manual rail reports `checked: 0` and `ok: true`.
+
+The timeout per endpoint is `REACHABILITY_TIMEOUT_MS`, default `2000`. It
+bounds each probe, so the whole answer is bounded by the number of endpoints
+times that value.
+
+#### From a shell
+
+```
+bb reach
+```
+
+Reads the same environment the server does and prints one line per service,
+exiting `1` when anything is unreachable. This is what replaces `telnet
+wallet.internal 18083` — same question, but it names every service at once,
+distinguishes a refusal from a block, and has an exit code a deploy can gate
+on.
+
+#### Do not point a container health check at it
+
+`/healthz` is liveness: it answers while every dependency is down, and that is
+deliberate. An orchestrator that restarts a pod because postgres is
+unreachable turns one outage into two. Reachability is for a human, an alert,
+or a deploy gate — not for a `livenessProbe`.
+
 ## Reconciliation
 
 ### Why a sweep exists when there are webhooks

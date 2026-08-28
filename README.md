@@ -309,6 +309,7 @@ type name rather than its contents.
 | `STRIPE_API_KEY` / `STRIPE_WEBHOOK_SECRET` | | Stripe without the webhook secret refuses every notice and settles by polling |
 | `RECONCILE_INTERVAL_MS` | `60000` | |
 | `RATE_CACHE_TTL_MS` | `60000` | |
+| `REACHABILITY_TIMEOUT_MS` | `2000` | Per-endpoint connect timeout for the readiness probe |
 | `TOKENS_FILE` | `tokens.edn` | Design contract; experiments are read from it |
 | `ANALYTICS` | `none` | `umami`, `log`, or `none` |
 | `UMAMI_URL` / `UMAMI_WEBSITE_ID` | | for `umami` |
@@ -325,7 +326,48 @@ POST /webhooks/:provider/:invoice            rail names it in the path
 POST /webhooks/:provider/:invoice/:token     ... with a callback token
 GET  /api/admin/queue          money seen but not applied, open invoices, rate feed
 POST /api/admin/grants         {customer, item, reference} — operator grant
+GET  /api/admin/reachability   can this store still reach what it settles through
+GET  /healthz                  the process is up. Nothing more than that
 ```
+
+### Liveness and readiness are different questions
+
+`/healthz` proves a JVM is accepting connections. It touches no wallet, no
+database and no processor, so it answers `200` straight through an outage in
+any of them — which is correct for a container health check and useless for
+an operator.
+
+`/api/admin/reachability` opens a TCP connection to every service this
+deployment is configured to reach and reports what happened, per service:
+
+```json
+{"ok": false, "checked": 2, "unreachable": 1,
+ "endpoints": [{"label": "moneropay", "host": "moneropay", "port": 5000,
+                "outcome": "refused", "elapsed-ms": 3, "detail": "Connection refused"},
+               {"label": "database", "host": "postgres", "port": 5432,
+                "outcome": "open", "elapsed-ms": 1, "detail": null}]}
+```
+
+`200` when everything answered, `503` when something did not. A refusal and a
+timeout stay distinct: a service that said no is not a path that never
+answered, and only the second one is usually a firewall.
+
+The list is **derived**, never restated — `system/endpoints` reads the same
+config keys the adapters are built from, so moving `MONEROPAY_URL` moves the
+probe with it, and a rail that is not configured is not probed. An empty list
+reports `ok: true` with `checked: 0`, which is what a deployment that reaches
+nothing over the network honestly is.
+
+The same question as a command, for an operator who would otherwise reach for
+`telnet`:
+
+```
+$ bb reach
+moneropay    moneropay:5000   refused          3ms  Connection refused
+database     postgres:5432    open             1ms
+```
+
+Exit `1` when anything is unreachable, so it composes into a deploy gate.
 
 ## Development
 
