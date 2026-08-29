@@ -13,7 +13,9 @@
   anything over, however many webhooks and sweeps arrive at once."
   (:require [clojure.edn :as edn]
             [clojure.string :as str]
+            [malli.core :as m]
             [monero-store.collect.store :as store]
+            [monero-store.schema :as schema]
             [next.jdbc :as jdbc]
             [next.jdbc.result-set :as rs])
   (:import (com.zaxxer.hikari HikariDataSource)
@@ -274,3 +276,34 @@
                 (many ["select * from fulfilments where customer_id = ? order by granted_at desc"
                        customer-id]))))
       {:datasource ds})))
+
+;; ---------------------------------------------------------------------------
+;; contracts
+
+(def DbConfig
+  [:map
+   [:jdbc-url schema/NonBlank]
+   [:username {:optional true} [:maybe :string]]
+   [:password {:optional true} [:maybe :string]]])
+
+(m/=> datasource [:=> [:cat DbConfig] [:fn #(instance? HikariDataSource %)]])
+
+(m/=> migrate! [:=> [:cat :any] :any])
+
+(m/=> ->date [:=> [:cat [:maybe schema/Instant]] [:maybe schema/Instant]])
+
+(m/=> ->timestamp [:=> [:cat [:maybe schema/Instant]] [:maybe schema/Instant]])
+
+(m/=> ->edn [:=> [:cat :any] [:maybe :string]])
+
+(m/=> <-edn [:=> [:cat [:maybe :string]] :any])
+
+(m/=> row->customer [:=> [:cat [:maybe :map]] [:maybe schema/Customer]])
+
+(m/=> row->invoice [:=> [:cat [:maybe :map]] [:maybe schema/Invoice]])
+
+(m/=> row->payment [:=> [:cat [:maybe :map]] [:maybe schema/Payment]])
+
+(m/=> row->fulfilment [:=> [:cat [:maybe :map]] [:maybe schema/Fulfilment]])
+
+(m/=> jdbc-store [:=> [:cat DbConfig] [:fn #(satisfies? store/IOrderStore %)]])

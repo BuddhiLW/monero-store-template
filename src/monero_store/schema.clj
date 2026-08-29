@@ -230,6 +230,18 @@
    [:wallet/transfers [:sequential WalletTransfer]]
    [:wallet/unlocked-amount {:optional true} [:maybe [:int {:min 0}]]]])
 
+(def CheckoutRequest
+  "What `ICardGateway/open-checkout!` is asked to open. `:checkout/reference`
+  is the invoice id as a string; opening it twice must yield the same session."
+  [:map {:closed true}
+   [:checkout/reference NonBlank]
+   [:checkout/email [:maybe :string]]
+   [:checkout/product NonBlank]
+   [:checkout/currency CurrencyId]
+   [:checkout/amount [:int {:min 0}]]
+   [:checkout/success-url NonBlank]
+   [:checkout/cancel-url NonBlank]])
+
 (def CheckoutSession
   "One hosted checkout as its processor reports it. The unit of evidence a
   processor rail settles from.

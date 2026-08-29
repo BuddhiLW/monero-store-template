@@ -67,4 +67,19 @@
                       {:address address :error (.getMessage e)})
             nil))))))
 
+;; ---------------------------------------------------------------------------
+;; contracts. SDK objects are :any in; the value objects out are the contract.
+
+(m/=> subaddress->value [:=> [:cat :any] schema/Subaddress])
+
+(m/=> transfer->value [:=> [:cat :any] schema/WalletTransfer])
+
 (m/=> observation [:=> [:cat schema/NonBlank :any] schema/WalletObservation])
+
+(m/=> rpc-wallet [:=> [:cat [:map
+                            [:uri schema/NonBlank]
+                            [:username {:optional true} [:maybe :string]]
+                            [:password {:optional true} [:maybe :string]]
+                            [:account-index {:optional true} [:int {:min 0}]]
+                            [:sync? {:optional true} :boolean]]]
+                   [:fn #(satisfies? wallet/IChainWallet %)]])

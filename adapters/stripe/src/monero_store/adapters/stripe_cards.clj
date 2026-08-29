@@ -92,4 +92,16 @@
                         {:session session-id :error (.getMessage e)})
               nil)))))))
 
+;; ---------------------------------------------------------------------------
+;; contracts. SDK builders are :any; the value objects out are the contract.
+
 (m/=> session->value [:=> [:cat :any] schema/CheckoutSession])
+
+(m/=> create-params [:=> [:cat schema/CheckoutRequest] :any])
+
+(m/=> idempotent [:=> [:cat :any] :any])
+
+(m/=> stripe-gateway [:=> [:cat [:map
+                                 [:api-key schema/NonBlank]
+                                 [:api-base {:optional true} [:maybe :string]]]]
+                      [:fn #(satisfies? cards/ICardGateway %)]])

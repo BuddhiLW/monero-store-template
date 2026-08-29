@@ -4,7 +4,7 @@
  :language :clojure
  :nrepl-port 7930
  :tags ["payments" "monero" "white-label" "template" "cppb" "ddd"] 
- :carto {:source-roots ["adapters/jdbc/src" "adapters/monero-rpc/src" "adapters/stripe/src" "dev" "resources" "src" "test" "ui/src"]}
+ :carto {:source-roots ["adapters/jdbc/src" "adapters/monero-rpc/src" "adapters/stripe/src" "dev" "resources" "src" "test" "test-ansatz" "test-typed" "ui/src"]}
  :hive.cljs {:shadow {:nrepl-port 7931}
                          :builds {:app {:http-port 8080}}
              :e2e {:scenario-paths ["test/e2e"]

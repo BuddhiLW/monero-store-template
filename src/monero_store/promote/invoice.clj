@@ -47,14 +47,23 @@
   [invoice now]
   (and (open? invoice) (lapsed? invoice now)))
 
+(defn owed
+  "Minor units still owed when `amount` was asked and `paid` has arrived.
+
+  Truncated subtraction: never negative, never more than `amount`."
+  [amount paid]
+  (max 0 (- (long amount) (long paid))))
+
 (defn remaining
   "Minor units still owed on `invoice` given `paid`. Zero once covered."
   [invoice paid]
-  (max 0 (- (long (:invoice/amount invoice 0)) (long (or paid 0)))))
+  (owed (:invoice/amount invoice 0) (or paid 0)))
 
 (m/=> open? [:=> [:cat schema/Invoice] :boolean])
 (m/=> lapsed? [:=> [:cat schema/Invoice schema/Instant] :boolean])
 (m/=> chargeable? [:=> [:cat schema/Invoice schema/Instant] :boolean])
 (m/=> resolution [:=> [:cat schema/Invoice schema/Instant] [:enum :applied :late]])
 (m/=> stale? [:=> [:cat schema/Invoice schema/Instant] :boolean])
+(m/=> owed [:=> [:cat [:int {:min 0}] [:int {:min 0}]] [:int {:min 0}]])
+
 (m/=> remaining [:=> [:cat schema/Invoice [:maybe :int]] [:int {:min 0}]])
