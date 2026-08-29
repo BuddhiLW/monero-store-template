@@ -38,22 +38,42 @@ jobs:
 
       # Without the Clojars secrets the deploy cannot succeed, and a bump that
       # tags a version nothing publishes is worse than no release at all.
+      #
+      # BOTH are checked. Testing only the username lets a repo with a username
+      # and no token bump, commit and push a tag, and fail at deploy — exactly
+      # the state this guard exists to prevent, reached by setting the two
+      # secrets in the wrong order.
       - name: Can we publish?
         id: creds
         env:
           CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
+          CLOJARS_PASSWORD: ${{ secrets.CLOJARS_DEPLOY_TOKEN }}
         run: |
-          if [ -n "$CLOJARS_USERNAME" ]; then
+          if [ -n "$CLOJARS_USERNAME" ] && [ -n "$CLOJARS_PASSWORD" ]; then
             echo "ok=true" >> "$GITHUB_OUTPUT"
           else
             echo "ok=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::CLOJARS_USERNAME is unset — tested, not released."
+            echo "::notice::CLOJARS_USERNAME or CLOJARS_DEPLOY_TOKEN is unset — tested, not released."
           fi
 
       - name: Bump patch version
         if: steps.creds.outputs.ok == 'true'
         run: clojure -T:build bump :level :patch
 
+      # Publish BEFORE tagging. A Maven coordinate is immutable, so a tag
+      # pushed for a version the deploy then failed to publish can never be
+      # honoured — the only repair is to burn the number and bump again. A
+      # publish with no tag is the strictly better failure: the artifact is
+      # real and the tag can be added by hand.
+      - name: Deploy
+        if: steps.creds.outputs.ok == 'true'
+        env:
+          CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
+          CLOJARS_PASSWORD: ${{ secrets.CLOJARS_DEPLOY_TOKEN }}
+        run: clojure -T:build deploy
+
+      # Only now, with the artifact actually on the registry, does the tag
+      # mean what it says.
       - name: Commit and tag
         if: steps.creds.outputs.ok == 'true'
         run: |
@@ -67,10 +87,3 @@ jobs:
           # which would publish the artifact and silently drop the tag.
           git tag -a "v$VER" -m "release $VER"
           git push --follow-tags
-
-      - name: Deploy
-        if: steps.creds.outputs.ok == 'true'
-        env:
-          CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
-          CLOJARS_PASSWORD: ${{ secrets.CLOJARS_DEPLOY_TOKEN }}
-        run: clojure -T:build deploy
