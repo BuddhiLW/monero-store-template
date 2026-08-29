@@ -39,6 +39,30 @@
    [:entry/legs [:and [:sequential {:min 2} LedgerLeg] [:fn balanced?]]]
    [:entry/at schema/Instant]])
 
+(def Billable
+  "What the book needs to know about an invoice, and nothing more.
+
+  Deliberately not `schema/Invoice`: a host store's invoice carries its own
+  keys — a plan rather than an item, periods, entitlements — and the builders
+  read none of them. Demanding the whole record would make the book unusable
+  by the very stores it exists for."
+  [:map
+   [:invoice/id :uuid]
+   [:invoice/amount [:int {:min 0}]]
+   [:invoice/currency schema/CurrencyId]])
+
+(def Received
+  "What the book needs to know about one observed movement of money.
+
+  `:payment/reference` is the idempotency key: derived from the movements the
+  rail named, so re-seeing the same money yields the same reference and books
+  once."
+  [:map
+   [:payment/invoice-id :uuid]
+   [:payment/reference schema/NonBlank]
+   [:payment/amount [:int {:min 0}]]
+   [:payment/seen-at {:optional true} [:maybe schema/Instant]]])
+
 (defprotocol ILedger
   (post! [this entry]
     "Record `entry`. Returns it, or nil when its reference was already recorded.")
@@ -107,6 +131,6 @@
                    + 0 (:order @state))))))
 
 (m/=> balanced? [:=> [:cat [:sequential LedgerLeg]] :boolean])
-(m/=> sale-entry [:=> [:cat schema/Invoice schema/Instant] LedgerEntry])
-(m/=> settlement-entry [:=> [:cat schema/Invoice schema/Payment] LedgerEntry])
+(m/=> sale-entry [:=> [:cat Billable schema/Instant] LedgerEntry])
+(m/=> settlement-entry [:=> [:cat Billable Received] LedgerEntry])
 (m/=> memory-ledger [:=> [:cat] [:fn #(satisfies? ILedger %)]])
