@@ -111,12 +111,14 @@
 
   ;; Every adapter source root at once, so the contract spine covers them.
   ;; `clojure -M:test:adapters`
-  :adapters {:extra-paths ["adapters/monero-rpc/src" "adapters/stripe/src" "adapters/jdbc/src"]
-             :extra-deps {io.github.woodser/monero-java {:mvn/version "0.8.50"}
-                          com.stripe/stripe-java {:mvn/version "33.2.0"}
-                          com.github.seancorfield/next.jdbc {:mvn/version "1.3.1002"}
-                          org.postgresql/postgresql {:mvn/version "42.7.7"}
-                          com.zaxxer/HikariCP {:mvn/version "6.3.0"}}}
+  :adapters {:extra-paths ["adapters/monero-rpc/src" "adapters/stripe/src" "adapters/jdbc/src"
+                                        "adapters/kontor/src"]
+                         :extra-deps {io.github.woodser/monero-java {:mvn/version "0.8.50"}
+                                      com.stripe/stripe-java {:mvn/version "33.2.0"}
+                                      com.github.seancorfield/next.jdbc {:mvn/version "1.3.1002"}
+                                      org.postgresql/postgresql {:mvn/version "42.7.7"}
+                                      com.zaxxer/HikariCP {:mvn/version "6.3.0"}
+                                      org.replikativ/kontor {:mvn/version "0.1.36"}}}
 
   :nrepl {:extra-paths ["dev" "test" "ui/src"]
           :extra-deps {org.clojure/test.check {:mvn/version "1.1.1"}
@@ -147,5 +149,10 @@
   :build {:deps {io.github.hive-agi/hive-build {:mvn/version "0.1.10"}}
           :ns-default hive-build.api}
   :arch {:extra-deps {org.soulspace.clj/overarch {:mvn/version "0.41.0"}}
-                 :main-opts ["-m" "org.soulspace.overarch.adapter.ui.cli"]}}
+                 :main-opts ["-m" "org.soulspace.overarch.adapter.ui.cli"]}
+  :kontor {:extra-paths ["adapters/kontor/src"]
+                        :extra-deps {org.replikativ/kontor {:mvn/version "0.1.36"}}}
+  :test-kontor {:extra-paths ["adapters/kontor/src" "test-kontor"]
+                               :extra-deps {org.replikativ/kontor {:mvn/version "0.1.36"}}
+                               :main-opts ["-m" "cognitect.test-runner" "-d" "test-kontor"]}}
  :mvn/repos {"hive-gitea" {:url "https://gitea.hive-mcp.com/api/packages/hive-agi/maven"}}}

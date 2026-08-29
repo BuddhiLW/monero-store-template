@@ -17,7 +17,8 @@
             [taoensso.timbre :as log]
             [monero-store.collect.analytics :as analytics]
             [malli.core :as m]
-            [monero-store.schema :as schema])
+            [monero-store.schema :as schema]
+            [monero-store.collect.ledger :as book])
   (:import (java.util Calendar Date UUID)))
 
 (defn- period-end
@@ -97,10 +98,13 @@
   whether the experiment worked can arrive days later, from a webhook that
   knows nothing about the browser that started it.
 
+  A new invoice is booked as revenue owed when `:ledger` is wired. A resumed
+  one is not: it was booked when it was opened.
+
   Returns {:invoice .. :handle ..}. Throws ExceptionInfo
   (`:monero-store/error :quote-required`) before writing anything when the
   price cannot be established."
-  [{:keys [store rails callback-base analytics now-fn] :or {now-fn #(Date.)} :as deps}
+  [{:keys [store rails callback-base analytics ledger now-fn] :or {now-fn #(Date.)} :as deps}
    {:keys [customer item-id provider-id variants visitor]}]
   (let [live (store/live-invoice-for store {:customer-id (:customer/id customer)
                                             :item-id item-id
@@ -118,22 +122,23 @@
                                           :provider provider-id})))
             {:keys [money quote]} (priced deps item currency)
             invoice-id (UUID/randomUUID)
-            _ (store/insert-invoice!
-               store
-               (cond-> {:invoice/id invoice-id
-                        :invoice/customer-id (:customer/id customer)
-                        :invoice/item-id item-id
-                        :invoice/provider provider-id
-                        :invoice/status :pending
-                        :invoice/amount (:money/amount money)
-                        :invoice/currency currency
-                        :invoice/external-ref nil
-                        :invoice/created-at (now-fn)}
-                 (seq variants) (assoc :invoice/metadata {:variants variants})
-                 quote
-                 (assoc :invoice/quoted-rate (:quote/rate quote)
-                        :invoice/quote-sources (:quote/sources quote)
-                        :invoice/expires-at (:quote/expires-at quote))))
+            invoice (cond-> {:invoice/id invoice-id
+                             :invoice/customer-id (:customer/id customer)
+                             :invoice/item-id item-id
+                             :invoice/provider provider-id
+                             :invoice/status :pending
+                             :invoice/amount (:money/amount money)
+                             :invoice/currency currency
+                             :invoice/external-ref nil
+                             :invoice/created-at (now-fn)}
+                      (seq variants) (assoc :invoice/metadata {:variants variants})
+                      quote
+                      (assoc :invoice/quoted-rate (:quote/rate quote)
+                             :invoice/quote-sources (:quote/sources quote)
+                             :invoice/expires-at (:quote/expires-at quote)))
+            _ (store/insert-invoice! store invoice)
+            _ (when ledger
+                (book/post! ledger (book/sale-entry invoice (now-fn))))
             handle (provider/charge!
                     (provider/rail rails provider-id)
                     {:charge/invoice-id invoice-id
@@ -193,9 +198,13 @@
 
   `:settle/suspect` leaves the invoice open and changes no status.
 
+  A newly observed movement is booked to `:ledger` when one is wired, late
+  included: money that arrived is money received whether or not it buys
+  anything.
+
   Returns the SettlementOutcome that was applied, or nil when `settlement` was
   produced by a rail other than the invoice's own."
-  [{:keys [store rails analytics now-fn] :or {now-fn #(Date.)} :as deps} invoice settlement]
+  [{:keys [store rails analytics ledger now-fn] :or {now-fn #(Date.)} :as deps} invoice settlement]
   (when (= (:invoice/provider invoice) (:settlement/provider settlement))
     (let [now (now-fn)
           resolution (invoice/resolution invoice now)
@@ -208,8 +217,10 @@
                                                                  :outcome (name (:adt/variant outcome))
                                                                  :amount (:settlement/paid-amount settlement)})
                                                :event/variants (get-in invoice [:invoice/metadata :variants]))))
-                    outcome)]
-      (record-observation! store invoice settlement resolution)
+                    outcome)
+          payment (record-observation! store invoice settlement resolution)]
+      (when (and ledger payment)
+        (book/post! ledger (book/settlement-entry invoice payment)))
       (if (= :late resolution)
         (report! (adt/settlement-outcome :settle/late))
         (let [outcome (provider/settle rails settlement)
