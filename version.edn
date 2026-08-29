@@ -3,9 +3,14 @@
  :license  {:name "MIT" :url "https://opensource.org/licenses/MIT"}
  :scm-url  "https://github.com/BuddhiLW/monero-store-template"
 
- ;; The core only. Every payment-SDK adapter lives on its own source root
- ;; behind its own alias and is NOT published here, so a consumer of this
- ;; coordinate inherits the money path and zero vendor jars.
- :src-dirs ["src" "resources"]
+ ;; The money path, plus the kontor LEDGER adapter. Every payment-SDK adapter
+ ;; (jdbc, monero-rpc, stripe) stays unpublished on its own source root: those
+ ;; are for deploying THIS store. The ledger adapter is the one an embedding
+ ;; store calls, so it has to be reachable from the coordinate.
+ ;;
+ ;; This still ships zero vendor jars. kontor is an alias dep, never a
+ ;; transitive one, so the namespace only loads for a consumer that put kontor
+ ;; on its own classpath — and a consumer that keeps no book never requires it.
+ :src-dirs ["src" "resources" "adapters/kontor/src"]
 
  :publish  :clojars}
