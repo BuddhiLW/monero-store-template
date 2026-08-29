@@ -28,12 +28,20 @@
   [legs]
   (zero? (reduce + 0 (map :leg/amount legs))))
 
+(def InvoiceId
+  "However the host store names an invoice.
+
+  Deliberately not `:uuid`. This store mints uuids; another mints a string its
+  gateway will echo back as a description. The book records the id it is given
+  and never parses it."
+  [:or :uuid schema/NonBlank])
+
 (def LedgerEntry
   "One balanced movement, identified by the reference that makes it repeatable."
   [:map
    [:entry/id :uuid]
    [:entry/kind [:enum :sale :settlement]]
-   [:entry/invoice-id :uuid]
+   [:entry/invoice-id InvoiceId]
    [:entry/currency schema/CurrencyId]
    [:entry/reference schema/NonBlank]
    [:entry/legs [:and [:sequential {:min 2} LedgerLeg] [:fn balanced?]]]
@@ -47,7 +55,7 @@
   read none of them. Demanding the whole record would make the book unusable
   by the very stores it exists for."
   [:map
-   [:invoice/id :uuid]
+   [:invoice/id InvoiceId]
    [:invoice/amount [:int {:min 0}]]
    [:invoice/currency schema/CurrencyId]])
 
@@ -58,7 +66,7 @@
   rail named, so re-seeing the same money yields the same reference and books
   once."
   [:map
-   [:payment/invoice-id :uuid]
+   [:payment/invoice-id InvoiceId]
    [:payment/reference schema/NonBlank]
    [:payment/amount [:int {:min 0}]]
    [:payment/seen-at {:optional true} [:maybe schema/Instant]]])

@@ -135,6 +135,16 @@
       (is (= 2500 (ledger/balance book :wallet :usd)))
       (is (zero? (ledger/balance book :wallet :eur))))))
 
+(deftest an-invoice-id-need-not-be-a-uuid
+  (testing "a host store that mints its own identifiers still books"
+    (let [book (ledger/memory-ledger)
+          inv {:invoice/id "inv_9f2c" :invoice/amount 1000 :invoice/currency :xmr}
+          pay {:payment/invoice-id "inv_9f2c" :payment/reference "tx-1" :payment/amount 1000}]
+      (ledger/post! book (ledger/sale-entry inv fixed-instant))
+      (ledger/post! book (ledger/settlement-entry inv pay))
+      (is (zero? (ledger/balance book :receivable :xmr)))
+      (is (= 1000 (ledger/balance book :wallet :xmr))))))
+
 ;; ---------------------------------------------------------------------------
 ;; teeth
 
