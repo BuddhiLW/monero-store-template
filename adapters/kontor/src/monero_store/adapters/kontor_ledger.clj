@@ -13,7 +13,8 @@
             [malli.core :as m]
             [monero-store.collect.ledger :as ledger]
             [monero-store.currency :as currency]
-            [monero-store.schema :as schema]))
+            [monero-store.schema :as schema]
+            [kontor.core :as kontor]))
 
 (def default-accounts
   "Ledger account -> the kontor account path it posts to."
@@ -60,6 +61,45 @@
   [conn currencies]
   (d/transact conn (chart currencies))
   conn)
+
+(defn file-config
+  "A datahike config keeping the book on disk at `path`.
+
+  The store id is derived from the path, so reopening the same path reaches
+  the same book. Datahike demands a UUID here and rejects a string.
+
+  History is kept and every index node content-addressed, which is what makes
+  the book auditable; `:schema-flexibility :write` refuses an undeclared
+  attribute rather than storing it."
+  [path]
+  {:store {:backend :file
+           :path path
+           :id (java.util.UUID/nameUUIDFromBytes (.getBytes ^String path "UTF-8"))}
+   :keep-history? true
+   :crypto-hash? true
+   :schema-flexibility :write})
+
+(defn memory-config
+  "A datahike config keeping the book only as long as the process. For dev and
+  staging, where losing the book is an inconvenience rather than money."
+  []
+  {:store {:backend :memory :id (random-uuid)}
+   :keep-history? true
+   :crypto-hash? true
+   :schema-flexibility :write})
+
+(defn open!
+  "Open the book at `config`, creating it if absent, and return a connection
+  with the kernel schema and this store's chart installed.
+
+  Idempotent: an existing book is connected to and re-bootstrapped, which
+  changes nothing because both installs are."
+  [config currencies]
+  (when-not (d/database-exists? config)
+    (d/create-database config))
+  (let [conn (d/connect config)]
+    (kontor/install-schema! conn)
+    (bootstrap! conn currencies)))
 
 (defn- already-posted?
   [conn reference]
@@ -126,3 +166,7 @@
 (m/=> bootstrap! [:=> [:cat :any [:sequential schema/CurrencyId]] :any])
 (m/=> already-posted? [:=> [:cat :any schema/NonBlank] :boolean])
 (m/=> account-total [:=> [:cat :any schema/NonBlank schema/NonBlank] decimal?])
+
+(m/=> file-config [:=> [:cat schema/NonBlank] :map])
+(m/=> memory-config [:=> [:cat] :map])
+(m/=> open! [:=> [:cat :map [:sequential schema/CurrencyId]] :any])

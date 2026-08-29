@@ -5,6 +5,7 @@
   in-memory ledger cannot: that a balance read back out of a double-entry
   kernel is the one the store put in, in minor units, at XMR's twelve places."
   (:require [clojure.test :refer [deftest is testing]]
+            [datahike.api]
             [kontor.core :as kontor]
             [monero-store.adapters.kontor-ledger :as kl]
             [monero-store.collect.ledger :as ledger]
@@ -104,6 +105,40 @@
         (is (nil? (ledger/post! book entry))))
       (testing "and the balance is unchanged"
         (is (= 1000000000000 (ledger/balance book :wallet :xmr)))))))
+
+;; ---------------------------------------------------------------------------
+;; opening a book a deployment can actually keep
+
+(deftest a-book-opens-in-memory
+  (let [conn (kl/open! (kl/memory-config) [:xmr])
+        book (kl/kontor-ledger conn)
+        inv (invoice :xmr 1000000000000)]
+    (ledger/post! book (ledger/settlement-entry inv (payment inv 1000000000000 "tx-1")))
+    (is (= 1000000000000 (ledger/balance book :wallet :xmr)))))
+
+(deftest a-book-opens-on-disk-and-survives-a-reconnect
+  (testing "the whole point of a file backend: the balance is still there when
+            the process that wrote it is gone"
+    (let [path (str (System/getProperty "java.io.tmpdir")
+                    "/monero-store-book-" (UUID/randomUUID))
+          config (kl/file-config path)
+          inv (invoice :xmr 1000000000000)]
+      (try
+        (let [book (kl/kontor-ledger (kl/open! config [:xmr]))]
+          (ledger/post! book (ledger/sale-entry inv fixed-instant))
+          (ledger/post! book (ledger/settlement-entry inv (payment inv 1000000000000 "tx-1")))
+          (is (zero? (ledger/balance book :receivable :xmr))))
+        (testing "re-opened, from nothing but the path"
+          (let [reopened (kl/kontor-ledger (kl/open! config [:xmr]))]
+            (is (= 1000000000000 (ledger/balance reopened :wallet :xmr)))
+            (is (zero? (ledger/balance reopened :receivable :xmr)))
+            (testing "and the reference is still known, so a redelivery is refused"
+              (is (ledger/posted? reopened
+                                  (:entry/reference
+                                   (ledger/settlement-entry
+                                    inv (payment inv 1000000000000 "tx-1"))))))))
+        (finally
+          (datahike.api/delete-database config))))))
 
 (deftest two-currencies-in-one-book-do-not-add-up
   (let [conn (book! :xmr :usd)
