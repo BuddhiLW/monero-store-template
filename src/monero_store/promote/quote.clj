@@ -13,32 +13,32 @@
            (java.util Date)))
 
 (def profile
-  "How much agreement a quote demands, and how long it holds.
+  "How much agreement a quote demands, how long it holds, and the sanity band
+  each pair's implied rate must fall inside.
 
-  `:quote/max-spread-bps` is measured against the median, in basis points."
+  `:quote/max-spread-bps` is measured against the median, in basis points.
+  `:quote/bounds` is a band, not a pricing opinion: it exists so a ticker that
+  starts reporting a price in the wrong unit cannot sell a year of service for
+  a fraction of a cent."
   {:quote/min-sources 2
    :quote/max-spread-bps 500
    :quote/max-age-ms 300000
-   :quote/lock-ms 900000})
+   :quote/lock-ms 900000
+   :quote/bounds {[:xmr :usd] [20 5000]
+                  [:btc :usd] [1000 500000]}})
 
-(defonce ^:private bounds
-  (atom {[:xmr :usd] [20 5000]
-         [:btc :usd] [1000 500000]}))
+(defn with-bounds
+  "`profile` with the [low high] band `pair`'s implied rate must fall inside.
 
-(defn set-bounds!
-  "Declare the [low high] band `pair`'s price must fall inside.
-
-  A sanity band, not a pricing opinion: it exists so a ticker that starts
-  reporting a price in the wrong unit cannot sell a year of service for a
-  fraction of a cent."
-  [pair low high]
-  (swap! bounds assoc pair [low high])
-  [low high])
+  Pure: a caller that wants a different band holds a different profile, so two
+  stores in one JVM cannot overwrite each other's pricing sanity checks."
+  [profile pair low high]
+  (assoc-in profile [:quote/bounds pair] [low high]))
 
 (defn bounds-for
-  "The band declared for `pair`, or nil when none is."
-  [pair]
-  (get @bounds pair))
+  "The band `profile` declares for `pair`, or nil when none is."
+  [profile pair]
+  (get (:quote/bounds profile) pair))
 
 (defn for-pair
   "Rates in `rates` that report on `pair`."
@@ -118,11 +118,11 @@
          (* a (.longValueExact (.toBigInteger (pow10 (:money/scale price)))))))))
 
 (defn plausible?
-  "True when `price` and `amount` imply a rate inside the band declared for
-  their pair. A pair with no declared band is trusted."
-  [price amount]
+  "True when `price` and `amount` imply a rate inside the band `profile`
+  declares for their pair. A pair with no declared band is trusted."
+  [profile price amount]
   (let [pair [(:money/currency amount) (:money/currency price)]]
-    (if-let [[lo hi] (bounds-for pair)]
+    (if-let [[lo hi] (bounds-for profile pair)]
       (let [rate (implied-rate price amount)]
         (boolean (and rate (<= lo rate hi))))
       true)))
@@ -138,7 +138,7 @@
     (when-let [agreed (consensus profile rates pair now)]
       (let [rate (:rate/price agreed)
             amount (schema/money target-currency (convert price rate target-currency))]
-        (when (plausible? price amount)
+        (when (plausible? profile price amount)
           {:quote/price price
            :quote/amount amount
            :quote/pair pair
@@ -157,15 +157,15 @@
 (m/=> fresh [:=> [:cat :map [:sequential schema/Rate] schema/Instant] [:vector schema/Rate]])
 (m/=> agreeing [:=> [:cat :map [:sequential schema/Rate]] [:vector schema/Rate]])
 (m/=> convert [:=> [:cat schema/Money number? :keyword] [:int {:min 0}]])
-(m/=> plausible? [:=> [:cat schema/Money schema/Money] :boolean])
+(m/=> plausible? [:=> [:cat :map schema/Money schema/Money] :boolean])
 (m/=> quote-for
       [:=> [:cat :map schema/Money [:sequential schema/Rate] :keyword schema/Instant]
        [:maybe schema/Quote]])
 (m/=> expired? [:=> [:cat schema/Quote schema/Instant] :boolean])
 
-(m/=> set-bounds! [:=> [:cat schema/Pair number? number?] [:tuple number? number?]])
+(m/=> with-bounds [:=> [:cat :map schema/Pair number? number?] :map])
 
-(m/=> bounds-for [:=> [:cat schema/Pair] [:maybe [:tuple number? number?]]])
+(m/=> bounds-for [:=> [:cat :map schema/Pair] [:maybe [:tuple number? number?]]])
 
 (m/=> consensus [:=> [:cat :map [:sequential schema/Rate] schema/Pair schema/Instant]
                  [:maybe [:map [:rate/price number?] [:rate/sources [:vector :keyword]]]]])

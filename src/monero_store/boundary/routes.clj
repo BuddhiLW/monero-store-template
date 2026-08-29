@@ -110,7 +110,7 @@
   [{:keys [rails] :as deps}]
   (fn [request]
     (let [operator? (identity/operator? (:admin-token deps) request)
-          visible (if operator? (catalog/items) (catalog/listed))]
+          visible (if operator? (catalog/items (:catalog deps)) (catalog/listed (:catalog deps)))]
       (json-response 200
                      {:items (mapv #(wire/item % (item-quotes deps %)) visible)
                       :providers (mapv #(wire/provider (provider/profile rails %))
@@ -126,12 +126,12 @@
               provider-id (some-> (:provider body) name keyword)
               visitor (shell/visitor-of request)]
           (cond
-            (nil? (catalog/item item-id))
+            (nil? (catalog/item (:catalog deps) item-id))
             (json-response 400 {:error "unknown item"})
 
             ;; An unlisted item is not merely unadvertised: knowing its id must
             ;; not be enough to buy at a price meant for an operator.
-            (and (not (catalog/listed? item-id))
+            (and (not (catalog/listed? (:catalog deps) item-id))
                  (not (identity/operator? (:admin-token deps) request)))
             (json-response 404 {:error "unknown item"})
 
@@ -259,7 +259,7 @@
               found (when (seq (str customer)) (store/customer-by-ref store (str customer)))]
           (cond
             (nil? found) (json-response 404 {:error "no such customer"})
-            (nil? (catalog/item item-id)) (json-response 400 {:error "unknown item"})
+            (nil? (catalog/item (:catalog deps) item-id)) (json-response 400 {:error "unknown item"})
             (str/blank? (str reference)) (json-response 400 {:error "a grant needs a reference"})
             (nil? (provider/rail rails :manual)) (json-response 503 {:error "the manual rail is not registered"})
             :else

@@ -2,7 +2,9 @@
   "What a deployment's own configuration says it must be able to reach."
   (:require [clojure.test :refer [deftest is testing]]
             [monero-store.schema :as schema]
-            [monero-store.system :as system]))
+            [monero-store.system :as system]
+            [monero-store.promote.catalog :as catalog]
+            [monero-store.promote.quote :as quotes]))
 
 (deftest a-rail-that-is-not-configured-is-not-probed
   (is (= [] (system/endpoints {:chain {:backend :none}
@@ -38,3 +40,24 @@
   (testing "a stripe deployment with no override still probes the public API"
     (is (= [{:endpoint/host "api.stripe.com" :endpoint/port 443 :endpoint/label "cards"}]
            (system/endpoints {:cards {:backend :stripe}})))))
+
+(deftest two-stores-in-one-jvm-do-not-share-a-catalog
+  (testing "a catalog is a value the store holds, not process-global state"
+    (let [a (catalog/store)
+          b (catalog/store)
+          [support pro] catalog/sample-catalog]
+      (catalog/register-all! a [support])
+      (catalog/register-all! b [pro])
+      (is (= [:support] (mapv :item/id (catalog/items a))))
+      (is (= [:pro] (mapv :item/id (catalog/items b))))
+      (testing "and clearing one leaves the other selling"
+        (catalog/clear! a)
+        (is (= [] (catalog/items a)))
+        (is (= [:pro] (mapv :item/id (catalog/items b))))))))
+
+(deftest a-quote-band-is-per-profile-not-per-process
+  (testing "two stores can disagree about what a plausible XMR price is"
+    (let [strict quotes/profile
+          loose (quotes/with-bounds quotes/profile [:xmr :usd] 0 1000000)]
+      (is (= [20 5000] (quotes/bounds-for strict [:xmr :usd])))
+      (is (= [0 1000000] (quotes/bounds-for loose [:xmr :usd]))))))

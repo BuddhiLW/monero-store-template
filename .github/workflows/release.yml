@@ -1,8 +1,13 @@
 name: release
 
-# Patch-bump and publish only when the push actually changes the library.
-# README / CI / test-only commits do not mint a version, because a published
-# pom is immutable.
+# VERSION is the version to PUBLISH, declared in the commit that changes the
+# library. CI never invents a number.
+#
+# The workflow used to run `bump :level :patch` and publish the result, which
+# made VERSION mean "the last released version" and made a minor or major
+# release unreachable: 0.4.0 could not be published at any value of the file.
+# It also meant a consumer could not pin a coordinate before the release,
+# because the number in the file was never the number that would exist.
 on:
   push:
     branches: [main]
@@ -10,6 +15,7 @@ on:
       - 'src/**'
       - 'resources/**'
       - 'deps.edn'
+      - 'VERSION'
   workflow_dispatch:
 
 concurrency:
@@ -33,16 +39,15 @@ jobs:
       # A payment library does not publish an unmeasured jar. The suite
       # instruments every contract and walks src/ to load every namespace, so
       # this also catches a namespace that cannot load at all.
+      #
+      # ^:integration is excluded by the :test alias itself: those probe real
+      # daemons from docker-compose.integration.yml and are not CI's job.
       - name: Test
         run: clojure -M:test
 
-      # Without the Clojars secrets the deploy cannot succeed, and a bump that
-      # tags a version nothing publishes is worse than no release at all.
-      #
-      # BOTH are checked. Testing only the username lets a repo with a username
-      # and no token bump, commit and push a tag, and fail at deploy — exactly
-      # the state this guard exists to prevent, reached by setting the two
-      # secrets in the wrong order.
+      # BOTH secrets are checked. Testing only the username lets a repo with a
+      # username and no token reach the deploy step and fail there, having
+      # already claimed the version number in the log.
       - name: Can we publish?
         id: creds
         env:
@@ -56,34 +61,51 @@ jobs:
             echo "::notice::CLOJARS_USERNAME or CLOJARS_DEPLOY_TOKEN is unset — tested, not released."
           fi
 
-      - name: Bump patch version
-        if: steps.creds.outputs.ok == 'true'
-        run: clojure -T:build bump :level :patch
+      # A Maven coordinate is immutable, so a version already on the registry
+      # cannot be republished. Skipping is the CORRECT outcome and not a
+      # failure: it is exactly what a test-only or dependency-only push should
+      # do. This is what lets deps.edn stay in the path filter above without
+      # minting a release whose src/ is byte-identical to the last one.
+      #
+      # The coordinate is read from version.edn rather than written out here,
+      # so the group and artifact are declared once.
+      - name: Is this version already released?
+        id: version
+        run: |
+          VER=$(cat VERSION)
+          echo "ver=$VER" >> "$GITHUB_OUTPUT"
+          PATH_SEG=$(clojure -M -e '(let [lib (:lib (read-string (slurp "version.edn")))] (print (str (clojure.string/replace (namespace lib) "." "/") "/" (name lib))))')
+          ART=$(basename "$PATH_SEG")
+          URL="https://repo.clojars.org/$PATH_SEG/$VER/$ART-$VER.pom"
+          CODE=$(curl -sS -o /dev/null -w '%{http_code}' "$URL")
+          echo "checked $URL -> $CODE"
+          if [ "$CODE" = "200" ]; then
+            echo "new=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::$VER is already on Clojars — tested, not republished. Edit VERSION to release."
+          elif [ "$CODE" = "404" ]; then
+            echo "new=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::error::Clojars answered $CODE for $URL — refusing to guess whether $VER exists."
+            exit 1
+          fi
 
-      # Publish BEFORE tagging. A Maven coordinate is immutable, so a tag
-      # pushed for a version the deploy then failed to publish can never be
-      # honoured — the only repair is to burn the number and bump again. A
-      # publish with no tag is the strictly better failure: the artifact is
-      # real and the tag can be added by hand.
       - name: Deploy
-        if: steps.creds.outputs.ok == 'true'
+        if: steps.creds.outputs.ok == 'true' && steps.version.outputs.new == 'true'
         env:
           CLOJARS_USERNAME: ${{ secrets.CLOJARS_USERNAME }}
           CLOJARS_PASSWORD: ${{ secrets.CLOJARS_DEPLOY_TOKEN }}
         run: clojure -T:build deploy
 
-      # Only now, with the artifact actually on the registry, does the tag
-      # mean what it says.
-      - name: Commit and tag
-        if: steps.creds.outputs.ok == 'true'
+      # Only now, with the artifact actually on the registry, does the tag mean
+      # what it says. Nothing is committed here: VERSION arrived with the
+      # commit that changed the library, so there is no push to race and no
+      # [skip ci] to remember.
+      - name: Tag
+        if: steps.creds.outputs.ok == 'true' && steps.version.outputs.new == 'true'
         run: |
-          VER=$(cat VERSION)
+          VER=${{ steps.version.outputs.ver }}
           git config user.name  "hive-ci"
           git config user.email "ci@hive-agi.local"
-          git add VERSION
-          # [skip ci] stops this push from retriggering the workflow.
-          git commit -m "chore(release): $VER [skip ci]"
-          # Annotated: `git push --follow-tags` ignores lightweight tags,
-          # which would publish the artifact and silently drop the tag.
+          # Annotated: `git push --follow-tags` ignores lightweight tags.
           git tag -a "v$VER" -m "release $VER"
-          git push --follow-tags
+          git push origin "v$VER"

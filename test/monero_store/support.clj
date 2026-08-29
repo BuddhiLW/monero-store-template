@@ -44,17 +44,20 @@
 
 (defn deps
   "A wired store. `opts` may override `:now-fn`, `:rates-fn`, `:fulfilment`,
-  and anything else the pipeline reads."
+  and anything else the pipeline reads.
+
+  Each call builds its OWN catalog, so one test's items cannot reach another's."
   ([] (deps {}))
   ([opts]
-   (catalog/clear!)
-   (catalog/register-all! (:catalog opts catalog-items))
-   (let [order-store (store/memory-store)
+   (let [catalogue (catalog/store)
+         order-store (store/memory-store)
          chain-wallet (wallet/fake-wallet)
          gateway (cards/fake-gateway)
          granted (atom [])]
+     (catalog/register-all! catalogue (:catalog opts catalog-items))
      (merge
       {:store order-store
+       :catalog catalogue
        :wallet chain-wallet
        :gateway gateway
        :granted granted

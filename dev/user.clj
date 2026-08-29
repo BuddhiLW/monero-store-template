@@ -155,6 +155,6 @@
   (cards/pay! (:gateway (deps)) (get-in carded [:handle :handle/external-ref]))
   (sweep!)
 
-  (catalog/items)
+  (catalog/items (:catalog (deps)))
   (halt!)
   (reset))

@@ -269,13 +269,14 @@
     (identity/anonymous)))
 
 (defn load-catalog!
-  "Register the catalog: the file `:catalog-file` names, or the sample."
-  [{:keys [catalog-file]}]
-  (catalog/clear!)
+  "Register into `catalog` the items the file `:catalog-file` names, or the
+  sample."
+  [catalog {:keys [catalog-file]}]
+  (catalog/clear! catalog)
   (if (and catalog-file (.exists (io/file catalog-file)))
-    (catalog/register-all! (edn/read-string (slurp catalog-file)))
+    (catalog/register-all! catalog (edn/read-string (slurp catalog-file)))
     (do (log/warn "no CATALOG_FILE; registering the sample catalog")
-        (catalog/register-all! catalog/sample-catalog))))
+        (catalog/register-all! catalog catalog/sample-catalog))))
 
 ;; ---------------------------------------------------------------------------
 ;; lifecycle
@@ -291,7 +292,10 @@
   `:experiments` to run arms declared somewhere other than the token file,
   `:endpoints` to name services this store does not configure but the host
   needs reachable, and `:probe` to reach them some way other than a TCP
-  connect. Anything else is a config key and overrides the environment."
+  connect. Anything else is a config key and overrides the environment.
+
+  The catalog is created here, per store. Two stores embedded in one JVM sell
+  different things."
   ([] (start! {}))
   ([overrides]
    (let [seams [:fulfilment :identify-fn :catalog :rails :store :rates-fn
@@ -299,10 +303,12 @@
          cfg (merge (config) (apply dissoc overrides seams))
          client (http/hato-client {:timeout-ms (get-in cfg [:rates :timeout-ms])})
          order-store (or (:store overrides) (order-store (:store cfg)))
+         catalogue (catalog/store)
          _ (if-let [items (:catalog overrides)]
-             (do (catalog/clear!) (catalog/register-all! items))
-             (load-catalog! cfg))
+             (catalog/register-all! catalogue items)
+             (load-catalog! catalogue cfg))
          deps {:store order-store
+               :catalog catalogue
                :rails (or (:rails overrides) (rails cfg {:client client}))
                :fulfilment (or (:fulfilment overrides)
                                (fulfilment-of (:fulfilment cfg) order-store))
@@ -323,7 +329,7 @@
        (log/warn "no payment rail is registered: nothing can be sold"))
      (log/info "monero-store up" {:port (:port cfg)
                                   :rails (sort (provider/ids (:rails deps)))
-                                  :items (mapv :item/id (catalog/items))
+                                  :items (mapv :item/id (catalog/items catalogue))
                                   :endpoints (mapv :endpoint/label (:endpoints deps))
                                   :experiments (sort (keys (:experiments deps)))})
      {:server server :deps deps :stop-reconcile stop-reconcile :config cfg})))
@@ -384,7 +390,8 @@
 
 (m/=> identify-fn-of [:=> [:cat [:maybe :keyword]] ifn?])
 
-(m/=> load-catalog! [:=> [:cat [:map [:catalog-file {:optional true} [:maybe :string]]]] [:vector schema/Item]])
+(m/=> load-catalog! [:=> [:cat :any [:map [:catalog-file {:optional true} [:maybe :string]]]]
+                     [:vector schema/Item]])
 
 (m/=> start! [:function
               [:=> :cat [:map [:server :any] [:deps :map] [:config :map]]]

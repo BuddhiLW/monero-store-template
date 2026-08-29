@@ -4,56 +4,62 @@
   An item is registered, never compiled in: a deployment declares its own
   catalog at boot and nothing below this namespace knows what a `:pro` is. The
   sample catalog exists so a fresh checkout runs before anyone has configured
-  anything."
+  anything.
+
+  The registry is a VALUE the caller holds, created by `store`. Two stores
+  embedded in one JVM own two catalogs."
   (:require [malli.core :as m]
             [monero-store.schema :as schema]))
 
-(defonce ^:private registry
+(defn store
+  "A fresh, empty catalog."
+  []
   (atom {}))
 
 (defn register!
-  "Register `item`, replacing any item with the same id. Returns the item.
+  "Register `item` in `catalog`, replacing any item with the same id. Returns
+  the item.
 
   Validated on the way in: an item priced in a currency nobody can settle, or
   with a negative amount, is a checkout that fails at the customer rather than
   at boot."
-  [item]
+  [catalog item]
   (schema/check! schema/Item item {:monero-store/producer `register!})
-  (swap! registry assoc (:item/id item) item)
+  (swap! catalog assoc (:item/id item) item)
   item)
 
 (defn register-all!
   "Register every item in `items`. Returns them."
-  [items]
-  (mapv register! items))
+  [catalog items]
+  (mapv #(register! catalog %) items))
 
 (defn clear!
   "Forget every registered item. For tests and for a boot that owns the whole
   catalog."
-  []
-  (reset! registry {})
+  [catalog]
+  (reset! catalog {})
   nil)
 
 (defn item
   "Registered Item for `item-id`, or nil."
-  [item-id]
-  (get @registry item-id))
+  [catalog item-id]
+  (get @catalog item-id))
 
 (defn items
   "Every registered item, in id order."
-  []
-  (->> @registry (sort-by key) (mapv val)))
+  [catalog]
+  (->> @catalog (sort-by key) (mapv val)))
 
 (defn listed
   "Items a customer may see. An unlisted item is still sellable — an operator
   can open one — it simply is not advertised."
-  []
-  (filterv #(not (false? (:item/listed? % true))) (items)))
+  [catalog]
+  (filterv #(not (false? (:item/listed? % true))) (items catalog)))
 
 (defn listed?
   "True when `item-id` is registered and advertised."
-  [item-id]
-  (boolean (when-let [found (item item-id)]
+  [catalog item-id]
+  (boolean (when-let [found (item catalog item-id)]
              (not (false? (:item/listed? found true))))))
 
 (defn price
@@ -82,15 +88,17 @@
     :item/period :once
     :item/listed? false}])
 
-(m/=> item [:=> [:cat :keyword] [:maybe schema/Item]])
-(m/=> items [:=> :cat [:vector schema/Item]])
-(m/=> listed [:=> :cat [:vector schema/Item]])
+(m/=> store [:=> :cat :any])
+
+(m/=> item [:=> [:cat :any :keyword] [:maybe schema/Item]])
+(m/=> items [:=> [:cat :any] [:vector schema/Item]])
+(m/=> listed [:=> [:cat :any] [:vector schema/Item]])
 (m/=> price [:=> [:cat schema/Item] schema/Money])
 
-(m/=> register! [:=> [:cat schema/Item] schema/Item])
+(m/=> register! [:=> [:cat :any schema/Item] schema/Item])
 
-(m/=> register-all! [:=> [:cat [:sequential schema/Item]] [:vector schema/Item]])
+(m/=> register-all! [:=> [:cat :any [:sequential schema/Item]] [:vector schema/Item]])
 
-(m/=> clear! [:=> :cat :nil])
+(m/=> clear! [:=> [:cat :any] :nil])
 
-(m/=> listed? [:=> [:cat :keyword] :boolean])
+(m/=> listed? [:=> [:cat :any :keyword] :boolean])

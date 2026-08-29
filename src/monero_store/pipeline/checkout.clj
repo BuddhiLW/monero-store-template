@@ -109,7 +109,7 @@
                   (provider/resumed-handle rails live))]
     (if resumed
       {:invoice live :handle resumed}
-      (let [item (or (catalog/item item-id)
+      (let [item (or (catalog/item (:catalog deps) item-id)
                      (throw (ex-info "no such item"
                                      {:monero-store/error :unknown-item :item-id item-id})))
             currency (or (provider/currency-of rails provider-id)
@@ -213,7 +213,7 @@
       (if (= :late resolution)
         (report! (adt/settlement-outcome :settle/late))
         (let [outcome (provider/settle rails settlement)
-              item (catalog/item (:invoice/item-id invoice))]
+              item (catalog/item (:catalog deps) (:invoice/item-id invoice))]
           (adt/adt-case adt/SettlementOutcome outcome
             :settle/grant
             (do (hand-over! deps invoice item now) (report! outcome))

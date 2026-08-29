@@ -62,7 +62,17 @@
                                 :xmr now))))
 
   (testing "the band is per pair, and declared"
-    (is (= [20 5000] (quotes/bounds-for [:xmr :usd])))))
+    (is (= [20 5000] (quotes/bounds-for quotes/profile [:xmr :usd]))))
+
+  (testing "the band lives on the profile, so one store cannot move another's"
+    (let [widened (quotes/with-bounds quotes/profile [:xmr :usd] 0 1000000)]
+      (is (= [0 1000000] (quotes/bounds-for widened [:xmr :usd])))
+      (is (= [20 5000] (quotes/bounds-for quotes/profile [:xmr :usd]))
+          "the original profile is untouched")
+      (is (some? (quotes/quote-for widened price
+                                   [(rate :alpha 0.5) (rate :beta 0.5)]
+                                   :xmr now))
+          "and a widened band admits the rate the default one refused"))))
 
 (deftest a-quote-holds-for-a-window
   (let [quoted (quotes/quote-for quotes/profile price [(rate :alpha 150.0) (rate :beta 151.0)] :xmr now)]
