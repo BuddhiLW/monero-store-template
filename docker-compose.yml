@@ -24,19 +24,22 @@ services:
     command: >
       --stagenet
       --rpc-bind-ip=0.0.0.0 --rpc-bind-port=38081 --confirm-external-bind
-      --non-interactive --prune-blockchain
+      --prune-blockchain
     volumes: ["monerod-data:/home/monero/.bitmonero"]
 
+  # MoneroPay v2 is configured by FLAGS, not environment variables. The
+  # entrypoint is overridden because the image bakes in `-bind=:5000`, which
+  # binds loopback inside the container and is unreachable from the network.
   moneropay:
-    image: ghcr.io/moneropay/moneropay:v0.13.0
+    image: registry.gitlab.com/moneropay/moneropay:v2.8.1
     depends_on:
       postgres: {condition: service_healthy}
-      monerod: {condition: service_started}
-    environment:
-      MONEROPAY_WALLET_RPC_ADDRESS: http://wallet-rpc:38083/json_rpc
-      MONEROPAY_POSTGRES_URI: postgres://store:${DATABASE_PASSWORD}@postgres:5432/store?sslmode=disable
-      MONEROPAY_BIND: 0.0.0.0:5000
-      MONEROPAY_TRANSFER_MIXIN: "15"
+      wallet-rpc: {condition: service_started}
+    entrypoint: ["./moneropay"]
+    command: >
+      -bind=0.0.0.0:5000
+      -rpc-address=http://wallet-rpc:38083/json_rpc
+      -postgresql=postgres://store:${DATABASE_PASSWORD}@postgres:5432/store?sslmode=disable
     volumes: ["moneropay-data:/data"]
 
   wallet-rpc:
@@ -45,7 +48,7 @@ services:
     command: >
       --stagenet
       --daemon-address=monerod:38081
-      --rpc-bind-port=38083 --rpc-bind-ip=0.0.0.0 --confirm-external-bind
+      --rpc-bind-port=38083
       --disable-rpc-login --wallet-dir=/home/monero/wallet
     volumes: ["moneropay-data:/home/monero/wallet"]
 

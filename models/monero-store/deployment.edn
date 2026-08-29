@@ -23,7 +23,7 @@
          :id :monero-store/moneropay-node
          :name "moneropay"
          :desc "Watches the wallet on the store's behalf and posts an unsigned callback when it sees money."
-         :tech "ghcr.io/moneropay/moneropay:v0.13.0"}
+         :tech "registry.gitlab.com/moneropay/moneropay:v2.8.1"}
 
         {:el :node
          :id :monero-store/wallet-rpc-node

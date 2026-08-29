@@ -18,7 +18,7 @@ Node(moneroStore_dockerHost, "Docker host", $descr="One host running the whole s
   Node(moneroStore_walletVolume, "moneropay-data", $descr="The wallet's keys, shared by moneropay and wallet-rpc. A lost volume is lost money — back it up like a wallet, because it is one.", $type="docker volume")
   Node(moneroStore_postgresNode, "postgres", $descr="The durable order store. Health-gated: the store waits for pg_isready.", $type="postgres:16-alpine")
   Node(moneroStore_monerodNode, "monerod", $descr="The chain the wallet reads. Pruned, stagenet, no external RPC published.", $type="simple-monerod, stagenet")
-  Node(moneroStore_moneropayNode, "moneropay", $descr="Watches the wallet on the store's behalf and posts an unsigned callback when it sees money.", $type="ghcr.io/moneropay/moneropay:v0.13.0")
+  Node(moneroStore_moneropayNode, "moneropay", $descr="Watches the wallet on the store's behalf and posts an unsigned callback when it sees money.", $type="registry.gitlab.com/moneropay/moneropay:v2.8.1")
   Node(moneroStore_postgresVolume, "postgres-data", $descr="Invoices, customers and the payment ledger.", $type="docker volume")
   Node(moneroStore_monerodVolume, "monerod-data", $descr="The pruned blockchain. Rebuildable, unlike the wallet volume.", $type="docker volume")
   Node(moneroStore_walletRpcNode, "wallet-rpc", $descr="The wallet MoneroPay drives. Its keys are on the shared volume.", $type="simple-monero-wallet-rpc, stagenet")

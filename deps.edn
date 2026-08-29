@@ -85,8 +85,15 @@
                       org.clojure/test.check {:mvn/version "1.1.1"}
                       io.github.hive-agi/hive-schemas {:mvn/version "0.1.11"}
                       io.github.hive-agi/hive-test {:mvn/version "0.3.11"}}
-         :main-opts ["-m" "cognitect.test-runner"]
+         ;; ^:integration is EXCLUDED here. Those tests probe real daemons from
+         ;; docker-compose.integration.yml, and a cold clone with no container
+         ;; runtime must still go green.
+         :main-opts ["-m" "cognitect.test-runner" "-e" "integration"]
          :exec-fn cognitect.test-runner.api/test}
+
+  ;; The other half: ONLY the daemon tests. Layers over :test for paths and
+  ;; deps, overriding its main-opts — `clojure -M:test:test-integration`.
+  :test-integration {:main-opts ["-m" "cognitect.test-runner" "-i" "integration"]}
 
   :nrepl {:extra-paths ["dev" "test" "ui/src"]
           :extra-deps {org.clojure/test.check {:mvn/version "1.1.1"}

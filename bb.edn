@@ -21,6 +21,21 @@
   test {:doc "Run the test suite"
         :task (shell "clojure -M:test")}
 
+  stack:up {:doc "Bring up the real daemons on loopback — postgres, monerod, wallet-rpc, MoneroPay"
+            :task (shell {:extra-env {"DATABASE_PASSWORD" (or (System/getenv "DATABASE_PASSWORD") "integration")
+                                      "ADMIN_TOKEN" (or (System/getenv "ADMIN_TOKEN") "integration")
+                                      "MONERO_CALLBACK_SECRET" (or (System/getenv "MONERO_CALLBACK_SECRET") "integration")}}
+                         "docker compose -f docker-compose.yml -f docker-compose.integration.yml up -d postgres monerod wallet-rpc moneropay")}
+
+  stack:down {:doc "Tear the daemons down. Add -v yourself to drop the wallet volume, which holds keys"
+              :task (shell {:extra-env {"DATABASE_PASSWORD" (or (System/getenv "DATABASE_PASSWORD") "integration")
+                                        "ADMIN_TOKEN" (or (System/getenv "ADMIN_TOKEN") "integration")
+                                        "MONERO_CALLBACK_SECRET" (or (System/getenv "MONERO_CALLBACK_SECRET") "integration")}}
+                           "docker compose -f docker-compose.yml -f docker-compose.integration.yml down")}
+
+  test:integration {:doc "Probe the REAL daemons — needs `bb stack:up` first"
+                    :task (shell "clojure -M:test:test-integration")}
+
   check {:doc "Everything CI runs"
          :depends [tokens:check test]}
   arch {:doc "models/*.edn -> C4 PlantUML diagrams under docs/diagrams"

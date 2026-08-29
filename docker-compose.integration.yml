@@ -1,0 +1,18 @@
+# Publishes the daemons on the loopback so a probe running on the HOST can
+# reach them. The base compose keeps them on the internal network, which is
+# right for a deployment and useless for an integration test.
+#
+# Loopback only. A monero-wallet-rpc with --disable-rpc-login bound to a LAN
+# interface is an unauthenticated wallet on the network.
+services:
+  postgres:
+    ports: ["127.0.0.1:55432:5432"]
+
+  monerod:
+    ports: ["127.0.0.1:38081:38081"]
+
+  wallet-rpc:
+    ports: ["127.0.0.1:38083:38083"]
+
+  moneropay:
+    ports: ["127.0.0.1:5000:5000"]
