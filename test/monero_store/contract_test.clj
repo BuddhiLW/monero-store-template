@@ -18,19 +18,39 @@
             [monero-store.promote.quote :as quote]
             [monero-store.schema :as schema]))
 
+(def source-roots
+  "Every directory on this classpath that holds store sources, so the aliases
+  in play decide the coverage: `-M:test` walks the core, `-M:test:adapters`
+  walks the core and every adapter."
+  (->> (str/split (System/getProperty "java.class.path")
+                  (re-pattern (java.io.File/pathSeparator)))
+       (map io/file)
+       (filter #(.isDirectory (io/file % "monero_store")))
+       ;; the suite's own root is on the classpath too, and a test namespace is
+       ;; not a function of the store
+       (remove #(= "test" (.getName ^java.io.File %)))
+       (sort-by #(.getPath ^java.io.File %))
+       vec))
+
+(defn- namespaces-under
+  [^java.io.File root]
+  (let [prefix (str (.getPath root) "/")]
+    (->> (file-seq root)
+         (filter #(and (.isFile ^java.io.File %)
+                       (str/ends-with? (.getName ^java.io.File %) ".clj")))
+         (map #(-> (.getPath ^java.io.File %)
+                   (str/replace prefix "")
+                   (str/replace #"\.clj$" "")
+                   (str/replace "_" "-")
+                   (str/replace "/" ".")
+                   symbol))
+         (remove #(str/ends-with? (str %) "-test")))))
+
 (defn- source-namespaces
-  "Every namespace under src/, read off disk rather than listed by hand."
+  "Every store namespace on the classpath, read off disk rather than listed by
+  hand."
   []
-  (->> (file-seq (io/file "src"))
-       (filter #(and (.isFile ^java.io.File %)
-                     (str/ends-with? (.getName ^java.io.File %) ".clj")))
-       (map #(-> (.getPath ^java.io.File %)
-                 (str/replace #"^src/" "")
-                 (str/replace #"\.clj$" "")
-                 (str/replace "_" "-")
-                 (str/replace "/" ".")
-                 symbol))
-       sort))
+  (sort (distinct (mapcat namespaces-under source-roots))))
 
 (run! require (source-namespaces))
 
@@ -79,7 +99,26 @@
       (is (= [] (remove (set (map ns-name (all-ns))) found))))
 
     (testing "the entry namespace included — it is the one nothing else requires"
-      (is (contains? (set found) 'monero-store.system)))))
+      (is (contains? (set found) 'monero-store.system)))
+
+    (testing "the core is always among the roots — a run that walks nothing passes everything"
+      (is (some #(= "src" (.getName ^java.io.File %)) source-roots)))))
+
+(deftest the-run-declares-which-source-roots-it-checked
+  (let [paths (mapv #(.getPath ^java.io.File %) source-roots)
+        adapter-roots (filterv #(str/includes? % "adapters") paths)
+        loaded (set (map ns-name (all-ns)))]
+    (println "contract spine walked:" (pr-str paths))
+
+    (testing "every root the walk found is a root it actually loaded namespaces from"
+      (is (= [] (remove #(seq (namespaces-under %)) source-roots))))
+
+    (testing "and every namespace under an adapter root is loaded, so the spine covers it"
+      (is (= [] (->> adapter-roots
+                     (map io/file)
+                     (mapcat namespaces-under)
+                     (remove loaded)
+                     vec))))))
 
 (deftest every-function-in-the-store-declares-its-contract
   (let [missing (into {}
@@ -117,18 +156,36 @@
 ;; The generator, the oracle and the mutants all come from the same schemas the
 ;; contracts are written in — nothing below is a hand-written case.
 
+(def DisplayableAmount
+  "A signed amount of minor units — the range `->display`'s contract promises."
+  [:int {:min -1000000000000000 :max 1000000000000000}])
+
 (hst/deftrifecta-from-schema display-is-total
   monero-store.currency/->display
-  {:in [:cat [:enum :xmr :btc :usd :eur :brl] [:int {:min 0 :max 1000000000000}]]
+  {:in [:cat [:enum :xmr :btc :usd :eur :brl] DisplayableAmount]
    :out schema/NonBlank
    :rel (fn [[currency-id amount] out]
           (and (string? out)
                (if (pos? (currency/scale currency-id))
                  (re-find #"\." out)
                  (not (re-find #"\." out)))
-               (or (pos? amount) (re-find #"^0" out))))
+               (= (neg? amount) (str/starts-with? out "-"))))
+   :contract true
+   :strict-in true
    :mutation false
-   :num-tests 200})
+   :num-tests 300})
+
+(hst/deftrifecta-from-schema display-round-trips-through-minor-units
+  monero-store.currency/->display
+  {:in [:cat [:enum :xmr :btc :usd :eur :brl] DisplayableAmount]
+   :out schema/NonBlank
+   ;; rendering is lossless: ->minor-units is the left inverse of ->display
+   :rel (fn [[currency-id amount] out]
+          (= amount (currency/->minor-units currency-id out)))
+   :contract true
+   :strict-in true
+   :mutation false
+   :num-tests 300})
 
 (hst/deftrifecta-from-schema median-is-a-middle
   monero-store.promote.quote/median
@@ -137,6 +194,8 @@
    :rel (fn [xs out]
           (and (<= (apply min xs) (double out))
                (<= (double out) (apply max xs))))
+   :contract true
+   :strict-in true
    :mutation false
    :num-tests 200})
 
@@ -148,6 +207,8 @@
           (and (<= (count out) (count props))
                (empty? (filter #{:email :address :tx-hash :reference :secret :token}
                                (keys out)))))
+   :contract true
+   :strict-in true
    :mutation false
    :num-tests 200})
 
@@ -185,6 +246,8 @@
                  (= expected (:settlement/expected-amount out))
                  (<= (:settlement/paid-amount out)
                      (reduce + 0 (map :transfer/amount honest))))))
+   :contract true
+   :strict-in true
    :mutation true
    :num-tests 100})
 
@@ -218,6 +281,7 @@
             (and (<= (apply min prices) (:rate/price out) (apply max prices))
                  (<= 2 (count (:rate/sources out)))
                  (every? (set (map :rate/source rates)) (:rate/sources out)))))
+   :contract true
    :mutation true
    :num-tests 200})
 
@@ -253,6 +317,7 @@
           (= out (if (and (invoice/open? invoice) (not (invoice/lapsed? invoice now)))
                    :applied
                    :late)))
+   :contract true
    :mutation false
    :num-tests 200})
 

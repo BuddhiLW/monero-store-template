@@ -56,18 +56,22 @@
   (.pow (java.math.BigInteger/valueOf 10) (int n)))
 
 (defn ->display
-  "`amount` minor units of `currency-id` as a fixed-point string.
+  "`amount` minor units of `currency-id` as a fixed-point string, signed.
 
-  Display only: every decision in this store is made on the integer."
+  Display only: every decision in this store is made on the integer.
+  `->minor-units` is its inverse over the whole signed range."
   [currency-id amount]
   (let [places (or (scale currency-id) 0)
         units (biginteger (or amount 0))
+        negative? (neg? (.signum units))
+        magnitude (.abs units)
         divisor (pow10 places)
-        whole (.divide units divisor)
-        frac (.mod units divisor)]
-    (if (zero? places)
-      (str whole)
-      (str whole "." (str/replace (format (str "%0" places "d") frac) #"^-" "")))))
+        whole (.divide magnitude divisor)
+        frac (.mod magnitude divisor)]
+    (str (when negative? "-")
+         whole
+         (when (pos? places)
+           (str "." (format (str "%0" places "d") frac))))))
 
 (defn ->minor-units
   "The decimal string or number `x` as minor units of `currency-id`.
