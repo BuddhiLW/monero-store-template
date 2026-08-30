@@ -9,7 +9,8 @@
             [monero-store.collect.wallet :as wallet]
             [monero-store.pipeline.checkout :as checkout]
             [monero-store.pipeline.reconcile :as reconcile]
-            [monero-store.support :as support]))
+            [monero-store.support :as support]
+            [monero-store.system :as system]))
 
 (defn- open-monero!
   [deps]
@@ -68,3 +69,46 @@
           {:keys [invoice handle]} (open-monero! deps)]
       (wallet/credit! (:wallet deps) (:handle/pay-to handle) (:invoice/amount invoice))
       (is (= {:settle/grant 1} (reconcile/sweep! deps))))))
+
+;; ---------------------------------------------------------------------------
+;; The boot path
+;;
+;; Everything above drives `support/deps`, which builds the deps map BY HAND.
+;; That proves the pipeline books when a ledger is present, and proves nothing
+;; about whether a store booted the supported way HAS one. It did not: `:ledger`
+;; was read by `checkout/open!` and `settle!` and written by neither `config`
+;; nor `start!`, so every deployment ran with `ledger` nil while the five tests
+;; above stayed green. These go through `system/start!`.
+;; ---------------------------------------------------------------------------
+
+(defn- free-port
+  []
+  (with-open [s (java.net.ServerSocket. 0)]
+    (.getLocalPort s)))
+
+(defn- booted
+  "Start a store on an ephemeral port, hand its deps to `f`, always stop it."
+  [overrides f]
+  (let [system (system/start! (merge {:port (free-port)} overrides))]
+    (try (f (:deps system)) (finally (system/stop! system)))))
+
+(deftest a-booted-store-has-a-book
+  (testing "start! wires :ledger, which is the key the pipeline reads"
+    (booted {}
+            (fn [deps]
+              (is (some? (:ledger deps))
+                  "LEDGER defaults to memory; booking nothing must be asked for")
+              (is (satisfies? book/ILedger (:ledger deps)))))))
+
+(deftest a-host-supplied-book-reaches-the-pipeline
+  (testing ":ledger is a seam, not a config key"
+    (let [ledger (book/memory-ledger)]
+      (booted {:ledger ledger}
+              (fn [deps]
+                (is (identical? ledger (:ledger deps))
+                    "an override absent from `seams` is absorbed into cfg and never reaches deps"))))))
+
+(deftest booking-nowhere-is-said-explicitly
+  (testing "nil is a value this seam can take, so it is read with contains? not or"
+    (booted {:ledger nil}
+            (fn [deps] (is (nil? (:ledger deps)))))))

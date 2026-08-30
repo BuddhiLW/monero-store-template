@@ -66,20 +66,33 @@ clojure -T:build install     ;; -> ~/.m2, for a consumer to resolve
 
 ## The seams
 
-`monero-store.system/start!` takes one map. Eight of its keys are seams; every
+`monero-store.system/start!` takes one map. Eleven of its keys are seams; every
 other key is configuration and overrides the environment. The list is literal,
 read straight out of `start!`:
 
 ```clojure
 seams [:fulfilment :identify-fn :catalog :rails :store :rates-fn
-       :analytics :experiments]
+       :analytics :experiments :endpoints :probe :ledger]
 ```
 
-Seven of them are `(or (:seam overrides) (built-from-the-environment))`, so
-passing nothing gives you the environment-configured default and passing
-something replaces it entirely. `:catalog` is the exception. It is not a value
-in `deps` at all — it is a side effect on a process-global registry, taken
-before `deps` is built:
+Keep that vector and this page identical. A seam missing from `seams` is not
+merely undocumented — `(apply dissoc overrides seams)` will not strip it, so a
+host that passes it has it absorbed into `cfg` as a config key and it never
+reaches `deps`. `:ledger` spent its whole life that way: read by
+`checkout/open!` and `settle!`, written by neither `config` nor `start!`, while
+five tests covering it stayed green because they built the deps map by hand.
+
+Most are `(or (:seam overrides) (built-from-the-environment))`, so passing
+nothing gives you the environment-configured default and passing something
+replaces it entirely. Two are exceptions.
+
+`:ledger` is read with `contains?`, not `or`, because nil is a value it can
+legitimately take: `:ledger nil` books nothing, while an absent key lets
+`LEDGER` decide. `or` cannot tell those apart — the same trap spelled out under
+`:identify-fn` below.
+
+`:catalog` is the other. It is not a value in `deps` at all — it is a side
+effect on a registry, taken before `deps` is built:
 
 ```clojure
 (if-let [items (:catalog overrides)]
@@ -96,7 +109,10 @@ before `deps` is built:
 | `:rails` | A `provider/registry` of `{:profile .. :rail ..}` entries | Whatever `MONERO_BACKEND`, `CARDS_BACKEND` and `DISABLE_MANUAL_RAIL` describe |
 | `:rates-fn` | A 0-arity function returning spot readings | `rates/feed` over the public tickers, cached for `RATE_CACHE_TTL_MS` |
 | `:analytics` | An `IAnalytics` | `ANALYTICS`, defaulting to `analytics/noop` |
+| `:ledger` | An `ILedger`, or `nil` to book nothing | `LEDGER`, defaulting to `ledger/memory-ledger`; `kontor` needs the `:kontor` alias, `none` books nothing |
 | `:experiments` | A map of experiment to arms | Read from `TOKENS_FILE` |
+| `:endpoints` | Services this store does not configure but the host needs reachable | Whatever `endpoints` reads from the environment |
+| `:probe` | An `IEndpointProbe` | `reach/socket-probe` — a TCP connect |
 
 `start!` returns `{:server :deps :stop-reconcile :config}`. Hand that same map
 back to `system/stop!` to shut down: it stops the reconciliation loop, closes

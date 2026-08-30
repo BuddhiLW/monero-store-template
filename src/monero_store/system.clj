@@ -31,7 +31,8 @@
             [monero-store.collect.analytics :as analytics]
             [malli.core :as m]
             [monero-store.schema :as schema]
-            [monero-store.collect.reachability :as reach])
+            [monero-store.collect.reachability :as reach]
+            [monero-store.collect.ledger :as ledger])
   (:gen-class))
 
 (defn- env
@@ -72,6 +73,16 @@
              :username (env "DATABASE_USER")
              :password (env "DATABASE_PASSWORD")}
      :fulfilment (keyword (env "FULFILMENT" "ledger"))
+     ;; The book. `LEDGER=none` is the only value that books nothing, and it has
+     ;; to be asked for by name: a deployment that silently records no money is
+     ;; the failure this key exists to make visible.
+     :ledger {:backend (keyword (env "LEDGER" "memory"))
+              :path (env "LEDGER_PATH")
+              :currencies (into []
+                                (comp (map str/trim)
+                                      (remove str/blank?)
+                                      (map keyword))
+                                (str/split (env "LEDGER_CURRENCIES" "brl") #","))}
      :analytics {:backend (keyword (env "ANALYTICS" "none"))
                  :base-url (env "UMAMI_URL")
                  :website-id (env "UMAMI_WEBSITE_ID")
@@ -138,6 +149,38 @@
              (analytics/umami (assoc config :client client)))
     :log (analytics/logging)
     (analytics/noop)))
+
+(defn- kontor-book
+  "A connection to the kontor book `config` names, or nil when the `:kontor`
+  alias is not on this classpath.
+
+  A blank `:path` keeps the book in memory, which is a book that dies with the
+  process: right for dev and staging, wrong for money."
+  [{:keys [path currencies]}]
+  (let [open! (optional-fn 'monero-store.adapters.kontor-ledger/open!)
+        memory-config (optional-fn 'monero-store.adapters.kontor-ledger/memory-config)
+        file-config (optional-fn 'monero-store.adapters.kontor-ledger/file-config)]
+    (when (and open! memory-config file-config)
+      (open! (if (str/blank? (str path)) (memory-config) (file-config path))
+             currencies))))
+
+(defn ledger-of
+  "The ILedger a deployment asked for.
+
+  `:kontor` needs the `:kontor` alias; without it the book falls back to memory
+  and says so, because a template that refuses to boot teaches nothing.
+
+  `:none` returns nil, and nil is how `checkout/open!` and `checkout/settle!`
+  are told to book nothing. It is the one backend that must be asked for by
+  name: a deployment that records no money should have decided to."
+  [{:keys [backend] :as config}]
+  (case backend
+    :none nil
+    :kontor (if-let [conn (kontor-book config)]
+              ((optional-fn 'monero-store.adapters.kontor-ledger/kontor-ledger) conn)
+              (do (log/warn "LEDGER=kontor but the :kontor alias is not on the classpath; using memory")
+                  (ledger/memory-ledger)))
+    (ledger/memory-ledger)))
 
 ;; ---------------------------------------------------------------------------
 ;; wiring
@@ -287,19 +330,24 @@
   `overrides` is how a host application embeds this store: `:fulfilment` to
   hand something over, `:identify-fn` to say who is asking, `:catalog` to sell
   its own things, `:rails` to register a rail this template has never heard of,
-  `:store` to persist somewhere it already runs, `:rates-fn` to price from a
-  feed it already has, `:analytics` to measure with its own sink,
-  `:experiments` to run arms declared somewhere other than the token file,
-  `:endpoints` to name services this store does not configure but the host
-  needs reachable, and `:probe` to reach them some way other than a TCP
-  connect. Anything else is a config key and overrides the environment.
+  `:store` to persist somewhere it already runs, `:ledger` to book double-entry
+  somewhere it already accounts, `:rates-fn` to price from a feed it already
+  has, `:analytics` to measure with its own sink, `:experiments` to run arms
+  declared somewhere other than the token file, `:endpoints` to name services
+  this store does not configure but the host needs reachable, and `:probe` to
+  reach them some way other than a TCP connect. Anything else is a config key
+  and overrides the environment.
+
+  `:ledger` is read with `contains?` rather than `or`, because nil is a value
+  it can legitimately take: passing `:ledger nil` books nothing, where an
+  absent key means `LEDGER` decides. Every other seam reads nil as absent.
 
   The catalog is created here, per store. Two stores embedded in one JVM sell
   different things."
   ([] (start! {}))
   ([overrides]
    (let [seams [:fulfilment :identify-fn :catalog :rails :store :rates-fn
-                :analytics :experiments :endpoints :probe]
+                :analytics :experiments :endpoints :probe :ledger]
          cfg (merge (config) (apply dissoc overrides seams))
          client (http/hato-client {:timeout-ms (get-in cfg [:rates :timeout-ms])})
          order-store (or (:store overrides) (order-store (:store cfg)))
@@ -314,6 +362,9 @@
                                (fulfilment-of (:fulfilment cfg) order-store))
                :identify-fn (or (:identify-fn overrides) (identify-fn-of (:identity cfg)))
                :analytics (or (:analytics overrides) (analytics-of (:analytics cfg) client))
+               :ledger (if (contains? overrides :ledger)
+                         (:ledger overrides)
+                         (ledger-of (:ledger cfg)))
                :experiments (or (:experiments overrides) (load-experiments cfg))
                :admin-token (:admin-token cfg)
                :callback-base (:callback-base cfg)
@@ -327,9 +378,14 @@
        (log/warn "operator surface disabled: ADMIN_TOKEN is unset"))
      (when (empty? (:rails deps))
        (log/warn "no payment rail is registered: nothing can be sold"))
+     (when-not (:ledger deps)
+       (log/warn "no ledger is wired: money will move and nothing will be booked"))
      (log/info "monero-store up" {:port (:port cfg)
                                   :rails (sort (provider/ids (:rails deps)))
                                   :items (mapv :item/id (catalog/items catalogue))
+                                  :ledger (if (:ledger deps)
+                                            (get-in cfg [:ledger :backend])
+                                            :none)
                                   :endpoints (mapv :endpoint/label (:endpoints deps))
                                   :experiments (sort (keys (:experiments deps)))})
      {:server server :deps deps :stop-reconcile stop-reconcile :config cfg})))
@@ -373,6 +429,10 @@
 (m/=> analytics-of [:=> [:cat :map :any] :any])
 
 (m/=> order-store [:=> [:cat :map] :any])
+
+(m/=> kontor-book [:=> [:cat :map] [:maybe :any]])
+
+(m/=> ledger-of [:=> [:cat :map] [:maybe :any]])
 
 (m/=> chain-wallet [:=> [:cat :map :any] [:maybe :any]])
 
