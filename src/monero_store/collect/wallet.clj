@@ -30,6 +30,18 @@
     Returns a WalletObservation, or nil when the wallet cannot report on the
     address — no observation is no evidence, which is not the same as zero."))
 
+(defprotocol IWalletProbe
+  (reachable? [this]
+    "Can this wallet actually be reached AND authenticated right now?
+
+    Separate from `IChainWallet` on purpose. An adapter with nothing meaningful
+    to probe simply does not implement it, and a caller decides with
+    `satisfies?` rather than every adapter carrying a stub that answers true.
+
+    It exists because a connection opened lazily makes a configured wallet
+    indistinguishable from a usable one: without this, the first customer
+    invoice is what discovers that the credentials are wrong."))
+
 ;; ---------------------------------------------------------------------------
 ;; callback tokens
 ;;

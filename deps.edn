@@ -154,5 +154,8 @@
                         :extra-deps {org.replikativ/kontor {:mvn/version "0.1.36"}}}
   :test-kontor {:extra-paths ["adapters/kontor/src" "test-kontor"]
                                :extra-deps {org.replikativ/kontor {:mvn/version "0.1.36"}}
-                               :main-opts ["-m" "cognitect.test-runner" "-d" "test-kontor"]}}
+                               :main-opts ["-m" "cognitect.test-runner" "-d" "test-kontor"]}
+  :test-monero-rpc {:extra-paths ["adapters/monero-rpc/src" "test-monero-rpc"]
+                                        :extra-deps {io.github.woodser/monero-java {:mvn/version "0.8.50"}}
+                                        :main-opts ["-m" "cognitect.test-runner" "-d" "test-monero-rpc"]}}
  :mvn/repos {"hive-gitea" {:url "https://gitea.hive-mcp.com/api/packages/hive-agi/maven"}}}

@@ -14,8 +14,11 @@ on:
     paths:
       - 'src/**'
       - 'resources/**'
+      - 'adapters/kontor/src/**'
+      - 'adapters/monero-rpc/src/**'
       - 'deps.edn'
       - 'VERSION'
+      - 'version.edn'
   workflow_dispatch:
 
 concurrency:

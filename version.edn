@@ -1,16 +1,24 @@
 {:lib      io.github.buddhilw/monero-store
- :minor    5
+ :minor    6
  :license  {:name "MIT" :url "https://opensource.org/licenses/MIT"}
  :scm-url  "https://github.com/BuddhiLW/monero-store-template"
 
- ;; The money path, plus the kontor LEDGER adapter. Every payment-SDK adapter
- ;; (jdbc, monero-rpc, stripe) stays unpublished on its own source root: those
- ;; are for deploying THIS store. The ledger adapter is the one an embedding
- ;; store calls, so it has to be reachable from the coordinate.
+ ;; The money path, plus the two adapters an EMBEDDING store CALLS rather than
+ ;; deploys: the kontor ledger, and the monero-wallet-rpc chain wallet. jdbc and
+ ;; stripe stay unpublished on their own source roots — those are for deploying
+ ;; THIS store, and a host that embeds the money path already has a database and
+ ;; has already chosen a card processor.
  ;;
- ;; This still ships zero vendor jars. kontor is an alias dep, never a
- ;; transitive one, so the namespace only loads for a consumer that put kontor
- ;; on its own classpath — and a consumer that keeps no book never requires it.
- :src-dirs ["src" "resources" "adapters/kontor/src"]
+ ;; monero-rpc ships because operating Monero is the one thing an embedding
+ ;; store cannot supply for itself. Without it a consumer resolving the
+ ;; coordinate gets `IChainWallet` and no implementation that talks to a wallet,
+ ;; so it writes a second one — which is exactly how two copies of one adapter
+ ;; come to exist and then drift apart.
+ ;;
+ ;; This still ships zero vendor jars. kontor and monero-java are alias deps,
+ ;; never transitive ones, so each namespace loads only for a consumer that put
+ ;; that SDK on its own classpath — and a consumer that keeps no book, or that
+ ;; watches through a gateway instead of running a wallet, never requires it.
+ :src-dirs ["src" "resources" "adapters/kontor/src" "adapters/monero-rpc/src"]
 
  :publish  :clojars}
