@@ -146,12 +146,20 @@
 
   `:settlement/references` names the individual movements behind the amount.
   `:settlement/suspect?` says a movement was seen and rejected; it contributes
-  no funds, and a rail that cannot observe such a thing omits the key."
+  no funds, and a rail that cannot observe such a thing omits the key.
+
+  `:settlement/paid-amount` is money that COUNTS: matured, and capped at what
+  the rail reports actually spendable. `:settlement/observed-amount` is money
+  that has been SEEN, before any such cap. A store shows the second to a payer
+  who is waiting and settles on the first, so a rail that can tell them apart
+  reports both; one that cannot omits the observed figure rather than repeating
+  the paid one, because a claim of no maturity gap is a claim."
   [:map {:closed true}
    [:settlement/provider ProviderId]
    [:settlement/external-ref NonBlank]
    [:settlement/status SettlementStatus]
    [:settlement/paid-amount [:int {:min 0}]]
+   [:settlement/observed-amount {:optional true} [:int {:min 0}]]
    [:settlement/expected-amount [:int {:min 0}]]
    [:settlement/confirmations [:int {:min 0}]]
    [:settlement/suspect? {:optional true} :boolean]
@@ -174,13 +182,46 @@
    [:payment/resolution PaymentResolution]
    [:payment/seen-at Instant]])
 
+(def PaymentProgress
+  "How far the money for one invoice has got.
+
+  An invoice's own status cannot answer this: it reads pending before anything
+  was sent and pending at nine confirmations of ten.
+
+  `:progress/state` is what the buyer's screen has to say.
+  `:progress/received` is money that COUNTS and `:progress/observed` money that
+  has been SEEN, both in minor units of `:progress/currency`; the second is
+  absent when the rail cannot tell them apart. `:progress/eta-ms` is absent
+  whenever nothing can honestly be estimated."
+  [:map {:closed true}
+   [:progress/state [:enum :awaiting :confirming :short :settled :refused :lapsed]]
+   [:progress/confirmations [:int {:min 0}]]
+   [:progress/required [:int {:min 0}]]
+   [:progress/received [:int {:min 0}]]
+   [:progress/observed {:optional true} [:int {:min 0}]]
+   [:progress/expected [:int {:min 0}]]
+   [:progress/shortfall [:int {:min 0}]]
+   [:progress/currency CurrencyId]
+   [:progress/first-seen-at {:optional true} Instant]
+   [:progress/eta-ms {:optional true} [:int {:min 0}]]])
+
 (def ProviderProfile
   "Measured, swappable behaviour of a payment rail. The DIP swap point.
 
   `:provider/settlement-poll?` says whether the rail can be asked, unprompted,
   what it has seen — a rail with no way to call the store must be polled or it
   never settles at all. `:provider/webhook-auth` says how, if at all, a notice
-  it posts can be authenticated."
+  it posts can be authenticated.
+
+  The optional keys are behaviour a rail may not be able to state.
+  `:provider/confirmation-interval-ms` is how long ONE confirmation takes here;
+  absent means the rail cannot say, and nothing is then estimated.
+  `:provider/settlement-window-ms` is how long AFTER an invoice's own expiry the
+  store keeps asking: a quote locks a price for the customer to send within and
+  says nothing about how long the rail then takes to confirm, so retiring the
+  invoice at the quote's expiry would strand every payment made near the end of
+  it. `:provider/self-serve?` says a buyer may open a charge on this rail
+  unaided."
   [:map {:closed true}
    [:provider/id ProviderId]
    [:provider/currency CurrencyId]
@@ -188,7 +229,10 @@
    [:provider/underpay-tolerance [:int {:min 0}]]
    [:provider/settles-async? :boolean]
    [:provider/settlement-poll? :boolean]
-   [:provider/webhook-auth [:enum :none :signed-payload :path-token :server-confirmed]]])
+   [:provider/webhook-auth [:enum :none :signed-payload :path-token :server-confirmed]]
+   [:provider/confirmation-interval-ms {:optional true} [:int {:min 0}]]
+   [:provider/settlement-window-ms {:optional true} [:int {:min 0}]]
+   [:provider/self-serve? {:optional true} :boolean]])
 
 (def WebhookNotice
   "A settlement notice as received at the HTTP boundary."

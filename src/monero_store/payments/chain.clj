@@ -38,7 +38,10 @@
   confirmations, and are reported as `:settlement/suspect?`. The payment is
   `:settled` once every contributing transfer is unlocked.
 
-  When the wallet reports its own unlocked total, the smaller of the two wins."
+  When the wallet reports its own unlocked total, the smaller of the two wins
+  for `:settlement/paid-amount`. `:settlement/observed-amount` is the same sum
+  BEFORE that cap: money seen but not yet spendable. A store waiting on a payer
+  shows the second and settles on the first."
   [provider-id observation expected-amount]
   (let [seen (:wallet/transfers observation)
         transfers (remove :transfer/double-spend? seen)
@@ -53,6 +56,7 @@
      :settlement/external-ref (:wallet/address observation)
      :settlement/status (if (and (seq transfers) (not locked?)) :settled :pending)
      :settlement/paid-amount paid
+     :settlement/observed-amount counted
      :settlement/expected-amount (long expected-amount)
      :settlement/confirmations confirmations
      :settlement/suspect? (boolean (some :transfer/double-spend? seen))
