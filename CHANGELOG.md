@@ -10,7 +10,7 @@ declared in the commit that changes the library, and CI never invents a number.
 So a consumer may pin the coordinate before the release runs, and the top entry
 here is the version `VERSION` currently reads.
 
-## [0.8.0]
+## [0.7.1]
 
 ### Added
 
