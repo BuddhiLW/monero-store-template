@@ -8,7 +8,8 @@
   — one that is down at boot, one missing the configured account, one asked
   about five hundred invoices in a sweep — is decidable in milliseconds."
   (:require [clojure.test :refer [deftest is testing]]
-            [monero-store.adapters.monero-rpc :as rpc]))
+            [monero-store.adapters.monero-rpc :as rpc]
+            [taoensso.timbre :as log]))
 
 ;; ---------------------------------------------------------------------------
 ;; retrying-connection
@@ -117,6 +118,50 @@
                        doall
                        (mapv deref))]
       (is (= 1 (count (filter true? results)))))))
+
+(defn- capturing
+  "Run `thunk` with timbre's output captured; returns [result log-entries]."
+  [thunk]
+  (let [entries (atom [])]
+    [(log/with-merged-config
+       {:appenders {:println {:enabled? false}
+                    :capture {:enabled? true
+                              :min-level :trace
+                              :fn (fn [data] (swap! entries conj data))}}}
+       (thunk))
+     @entries]))
+
+(deftest probe-ok?-reports-the-cause-instead-of-swallowing-it
+  (testing "a wallet that answers is reachable, and says nothing"
+    (let [[ok? logged] (capturing #(rpc/probe-ok? (constantly 3141592)
+                                                  {:uri "http://wallet:18083"}))]
+      (is (true? ok?))
+      (is (= [] logged) "a healthy probe on a 30s timer must not log")))
+
+  (testing "a wallet that throws is unreachable, and the THROWABLE reaches the log"
+    (let [boom (ex-info "401 Unauthorized" {:status 401})
+          [ok? logged] (capturing #(rpc/probe-ok? (fn [] (throw boom))
+                                                  {:uri "http://wallet:18083"
+                                                   :account-index 1}))]
+      (is (false? ok?))
+      (is (= 1 (count logged)))
+      (is (= :warn (:level (first logged))))
+      (is (identical? boom (:?err (first logged)))
+          "the cause itself — a message alone cannot tell 401 from DNS")
+      (is (= {:uri "http://wallet:18083" :account-index 1}
+             (last (:vargs (first logged))))
+          "and the endpoint it failed against")))
+
+  (testing "an Error is caught too — a missing SDK class is not an exception"
+    (let [[ok? logged] (capturing #(rpc/probe-ok? (fn [] (throw (NoClassDefFoundError. "monero/wallet/MoneroWalletRpc")))
+                                                  {:uri "http://wallet:18083"}))]
+      (is (false? ok?))
+      (is (= 1 (count logged)))))
+
+  (testing "nothing that could carry a credential is logged"
+    (let [[_ logged] (capturing #(rpc/probe-ok? (fn [] (throw (ex-info "boom" {})))
+                                                {:uri "http://wallet:18083"}))]
+      (is (empty? (filter #{:username :password} (keys (last (:vargs (first logged))))))))))
 
 ;; ---------------------------------------------------------------------------
 ;; the value objects

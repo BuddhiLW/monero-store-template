@@ -122,6 +122,18 @@
              (>= (- now (:at previous)) (long ttl-ms)))
          (compare-and-set! probe previous (assoc previous :at now)))))
 
+(defn probe-ok?
+  "Whether `height!` answers, logging the throwable at WARN when it does not.
+
+  `ctx` is logged verbatim, so it must carry no credentials."
+  [height! ctx]
+  (try
+    (height!)
+    true
+    (catch Throwable t
+      (log/warn t "wallet probe failed" ctx)
+      false)))
+
 (defn rpc-wallet
   "IChainWallet backed by a monero-wallet-rpc endpoint.
 
@@ -140,7 +152,9 @@
   Also an `IWalletProbe`: `reachable?` asks the wallet for its height, at most
   once per `:probe-ttl-ms`. The wallet demands digest auth and answers 401
   without credentials, so nothing short of a real call distinguishes a
-  configured wallet from a usable one."
+  configured wallet from a usable one. A probe that fails answers false and
+  logs the throwable at WARN — bounded by the same TTL, so it names the cause
+  without logging on a timer."
   [{:keys [uri username password account-index sync? sync-interval-ms
            probe-ttl-ms clock open-wallet ensure-account!]
     :or {account-index 0
@@ -159,10 +173,8 @@
       (reachable? [_]
         (let [now (clock)]
           (if (probe-due? probe probe-ttl-ms now)
-            (let [ok? (try
-                        (.getHeight ^MoneroWalletRpc @wallet)
-                        true
-                        (catch Throwable _ false))]
+            (let [ok? (probe-ok? #(.getHeight ^MoneroWalletRpc @wallet)
+                                 {:uri uri :account-index account-index})]
               (swap! probe assoc :at now :ok? ok?)
               ok?)
             (boolean (:ok? @probe)))))
@@ -217,3 +229,5 @@
 (m/=> sync-due? [:=> [:cat :any [:int {:min 0}] :int] :boolean])
 
 (m/=> probe-due? [:=> [:cat :any [:int {:min 0}] :int] :boolean])
+
+(m/=> probe-ok? [:=> [:cat [:fn fn?] :map] :boolean])

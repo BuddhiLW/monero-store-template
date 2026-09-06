@@ -10,6 +10,32 @@ declared in the commit that changes the library, and CI never invents a number.
 So a consumer may pin the coordinate before the release runs, and the top entry
 here is the version `VERSION` currently reads.
 
+## [0.7.2]
+
+### Fixed
+
+- `adapters.monero-rpc`'s `IWalletProbe/reachable?` no longer discards the
+  throwable that made a wallet unreachable. Wrong digest credentials, a wallet
+  that is not open, DNS, a blocked route and a missing monero-java class all
+  answered `false` identically, and `reachable?` returns a boolean, so a
+  consumer's readiness path had nothing to report. The cause is now logged at
+  WARN through the adapter's own timbre logger, bounded by the same
+  `:probe-ttl-ms` as the probe itself, so it names the failure without logging
+  on a timer.
+
+### Added
+
+- `adapters.monero-rpc/probe-ok?`, the seam that does it: it takes the height
+  thunk and a context map, answers the boolean `reachable?` needs, and logs the
+  throwable when there is one. Public because it is what makes the WARN
+  behaviour testable without a live daemon. The context map is logged verbatim,
+  so a caller must keep credentials out of it.
+
+### Notes for consumers
+
+Backwards compatible. `reachable?` answers the same booleans it always did; the
+only change a consumer sees is a WARN line naming why a probe failed.
+
 ## [0.7.1]
 
 ### Added
