@@ -151,15 +151,39 @@
 ;; ---------------------------------------------------------------------------
 ;; the decision
 
+(defn confirmations-required
+  "How many confirmations `profile` demands of an invoice for `amount`. Pure.
+
+  The first tier whose upper bound `amount` does not exceed decides; a nil
+  bound is the catch-all above every other. With no tiers declared, or with an
+  amount past every declared bound, the flat `:provider/min-confirmations`
+  stands, so a profile written before tiers existed behaves exactly as it did.
+
+  Tiers are read in the order the profile lists them rather than sorted here.
+  The profile is the policy, and silently reordering a policy is how a rule
+  nobody wrote ends up being the one that runs."
+  [profile amount]
+  (let [floor (long (or (:provider/min-confirmations profile) 0))
+        amount (long (or amount 0))]
+    (or (some (fn [[bound confirmations]]
+                (when (or (nil? bound) (<= amount (long bound)))
+                  (long confirmations)))
+              (:provider/confirmation-tiers profile))
+        floor)))
+
 (defn settle
   "Decide what a Settlement means under its provider's profile.
 
   Pure, and open for extension: every threshold comes from the profile, so a
-  new rail needs no change here. The order of the clauses is the policy."
+  new rail needs no change here. The order of the clauses is the policy.
+
+  The confirmation threshold is read per invoice rather than per rail, because
+  what makes a payment safe enough depends on how much of it there is. See
+  `confirmations-required`."
   [rails {:settlement/keys [status paid-amount expected-amount confirmations suspect?] :as settlement}]
-  (let [{:provider/keys [min-confirmations underpay-tolerance]
-         :or {min-confirmations 0 underpay-tolerance 0}}
+  (let [{:provider/keys [underpay-tolerance] :or {underpay-tolerance 0} :as profile}
         (profile rails (:settlement/provider settlement))
+        min-confirmations (confirmations-required profile expected-amount)
         shortfall (- (long expected-amount) (long paid-amount))]
     (adt/settlement-outcome
      (cond
@@ -170,6 +194,9 @@
        (< (long confirmations) (long min-confirmations)) :settle/pending
        (= :pending status) :settle/pending
        :else :settle/grant))))
+
+(m/=> confirmations-required
+      [:=> [:cat [:maybe :map] [:maybe :int]] [:int {:min 0}]])
 
 (m/=> profile [:=> [:cat :map :keyword] [:maybe schema/ProviderProfile]])
 (m/=> settle [:=> [:cat :map schema/Settlement] schema/SettlementOutcome])

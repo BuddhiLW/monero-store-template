@@ -221,7 +221,20 @@
   says nothing about how long the rail then takes to confirm, so retiring the
   invoice at the quote's expiry would strand every payment made near the end of
   it. `:provider/self-serve?` says a buyer may open a charge on this rail
-  unaided."
+  unaided.
+
+  `:provider/confirmation-tiers` makes the confirmation count a function of how
+  much money is at stake, because one number cannot be right for both a cheap
+  purchase and an expensive one. Each entry is [upper-bound confirmations],
+  ordered ascending, in minor units of this rail's own currency; the first
+  entry whose bound the invoice does not exceed wins, and an entry whose bound
+  is nil is the catch-all for everything above. Absent, every amount uses
+  `:provider/min-confirmations`, which also remains the floor's fallback.
+
+  A tier of zero is a deliberate, bounded bet that the cost of being wrong is
+  less than the cost of making every buyer wait. It is only defensible where
+  the goods are cheap and revocable. Monero took an 18-block reorg in 2025,
+  which is the standing argument for why the upper tiers must stay real."
   [:map {:closed true}
    [:provider/id ProviderId]
    [:provider/currency CurrencyId]
@@ -232,7 +245,9 @@
    [:provider/webhook-auth [:enum :none :signed-payload :path-token :server-confirmed]]
    [:provider/confirmation-interval-ms {:optional true} [:int {:min 0}]]
    [:provider/settlement-window-ms {:optional true} [:int {:min 0}]]
-   [:provider/self-serve? {:optional true} :boolean]])
+   [:provider/self-serve? {:optional true} :boolean]
+   [:provider/confirmation-tiers {:optional true}
+    [:sequential [:tuple [:maybe [:int {:min 0}]] [:int {:min 0}]]]]])
 
 (def WebhookNotice
   "A settlement notice as received at the HTTP boundary."
@@ -344,6 +359,40 @@
   [:map {:closed true}
    [:adt/type [:= :CheckoutState]]
    [:adt/variant (into [:enum] (sort (:variants adt/CheckoutState)))]])
+
+(def SwapState
+  "A SwapState ADT value. Its variants come from the sum, as above."
+  [:map {:closed true}
+   [:adt/type [:= :SwapState]]
+   [:adt/variant (into [:enum] (sort (:variants adt/SwapState)))]])
+
+(def SwapOrder
+  "An exchange order standing between a coin the buyer holds and the one the
+  store keeps. The unit of evidence a swap-backed wallet observes.
+
+  `:swap/pay-in-address` is the whole point: it is handed to the buyer AS the
+  invoice address, so nothing above the wallet port learns that an exchange is
+  involved.
+
+  Amounts are minor units of `:swap/from`, never of the payout currency. The
+  buyer's debt is denominated in what they agreed to send, so what the store
+  eventually receives after fees and slippage cannot change whether they paid.
+
+  `:swap/payout-address` is the store's own wallet and is recorded on the order
+  so a past conversion can be audited against where it was told to land."
+  [:map {:closed true}
+   [:swap/id NonBlank]
+   [:swap/provider :keyword]
+   [:swap/from CurrencyId]
+   [:swap/to CurrencyId]
+   [:swap/state SwapState]
+   [:swap/pay-in-address NonBlank]
+   [:swap/payout-address NonBlank]
+   [:swap/expected-amount [:int {:min 0}]]
+   [:swap/received-amount {:optional true} [:maybe [:int {:min 0}]]]
+   [:swap/confirmations {:optional true} [:maybe [:int {:min 0}]]]
+   [:swap/tx-hash {:optional true} [:maybe NonBlank]]
+   [:swap/expires-at {:optional true} [:maybe Instant]]])
 
 (def Endpoint
   "A service the store must be able to reach to settle through it."

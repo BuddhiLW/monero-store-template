@@ -20,8 +20,21 @@
 
   `:source/path` is where the price sits in the parsed body, and
   `:source/pair` is [base quote] — the price is how many `quote` units one
-  whole `base` unit costs."
-  [{:source/id :kraken
+  whole `base` unit costs.
+
+  Every path here was read off a live response on 2026-09-21 rather than off a
+  vendor's documentation, because a ticker that moved a key answers 200 with a
+  body this cannot find a price in, and that reads as an outage rather than as
+  a mistake.
+
+  A round makes one request per ROW, so a vendor's rate limit is a budget this
+  table spends. CoinGecko's free tier throttles at a handful of calls a minute
+  and answered 429 to five rows in one round, so it keeps the single XMR row it
+  came in for and the other pairs are served by four exchanges that did not
+  complain. A stablecoin gets the same treatment as a volatile coin: a depeg is
+  exactly the moment a store must not assume the price."
+  [;; ------------------------------------------------------------------ XMR
+   {:source/id :kraken
     :source/pair [:xmr :usd]
     :source/url "https://api.kraken.com/0/public/Ticker?pair=XMRUSD"
     :source/path [:result :XXMRZUSD :c 0]}
@@ -36,6 +49,78 @@
    {:source/id :bitfinex
     :source/pair [:xmr :usd]
     :source/url "https://api-pub.bitfinex.com/v2/ticker/tXMRUSD"
+    :source/path [6]}
+
+   ;; ------------------------------------------------------------------ BTC
+   {:source/id :kraken
+    :source/pair [:btc :usd]
+    :source/url "https://api.kraken.com/0/public/Ticker?pair=XBTUSD"
+    :source/path [:result :XXBTZUSD :c 0]}
+   {:source/id :coinpaprika
+    :source/pair [:btc :usd]
+    :source/url "https://api.coinpaprika.com/v1/tickers/btc-bitcoin"
+    :source/path [:quotes :USD :price]}
+   {:source/id :coinbase
+    :source/pair [:btc :usd]
+    :source/url "https://api.coinbase.com/v2/prices/BTC-USD/spot"
+    :source/path [:data :amount]}
+   {:source/id :bitfinex
+    :source/pair [:btc :usd]
+    :source/url "https://api-pub.bitfinex.com/v2/ticker/tBTCUSD"
+    :source/path [6]}
+
+   ;; ------------------------------------------------------------------ ETH
+   {:source/id :kraken
+    :source/pair [:eth :usd]
+    :source/url "https://api.kraken.com/0/public/Ticker?pair=ETHUSD"
+    :source/path [:result :XETHZUSD :c 0]}
+   {:source/id :coinpaprika
+    :source/pair [:eth :usd]
+    :source/url "https://api.coinpaprika.com/v1/tickers/eth-ethereum"
+    :source/path [:quotes :USD :price]}
+   {:source/id :coinbase
+    :source/pair [:eth :usd]
+    :source/url "https://api.coinbase.com/v2/prices/ETH-USD/spot"
+    :source/path [:data :amount]}
+   {:source/id :bitfinex
+    :source/pair [:eth :usd]
+    :source/url "https://api-pub.bitfinex.com/v2/ticker/tETHUSD"
+    :source/path [6]}
+
+   ;; ----------------------------------------------------------------- USDT
+   {:source/id :kraken
+    :source/pair [:usdt :usd]
+    :source/url "https://api.kraken.com/0/public/Ticker?pair=USDTUSD"
+    :source/path [:result :USDTZUSD :c 0]}
+   {:source/id :coinpaprika
+    :source/pair [:usdt :usd]
+    :source/url "https://api.coinpaprika.com/v1/tickers/usdt-tether"
+    :source/path [:quotes :USD :price]}
+   {:source/id :coinbase
+    :source/pair [:usdt :usd]
+    :source/url "https://api.coinbase.com/v2/prices/USDT-USD/spot"
+    :source/path [:data :amount]}
+   {:source/id :bitfinex
+    :source/pair [:usdt :usd]
+    :source/url "https://api-pub.bitfinex.com/v2/ticker/tUSTUSD"
+    :source/path [6]}
+
+   ;; ----------------------------------------------------------------- USDC
+   {:source/id :kraken
+    :source/pair [:usdc :usd]
+    :source/url "https://api.kraken.com/0/public/Ticker?pair=USDCUSD"
+    :source/path [:result :USDCUSD :c 0]}
+   {:source/id :coinpaprika
+    :source/pair [:usdc :usd]
+    :source/url "https://api.coinpaprika.com/v1/tickers/usdc-usd-coin"
+    :source/path [:quotes :USD :price]}
+   {:source/id :coinbase
+    :source/pair [:usdc :usd]
+    :source/url "https://api.coinbase.com/v2/prices/USDC-USD/spot"
+    :source/path [:data :amount]}
+   {:source/id :bitfinex
+    :source/pair [:usdc :usd]
+    :source/url "https://api-pub.bitfinex.com/v2/ticker/tUDCUSD"
     :source/path [6]}])
 
 (defn ->number

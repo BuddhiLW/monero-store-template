@@ -42,3 +42,21 @@
   these sums requires the sums and nothing else."
   [type-ref expr & clauses]
   `(adt/adt-case ~type-ref ~expr ~@clauses))
+
+(adt/defadt SwapState
+  "Where an exchange order stands, as the provider running it reports.
+
+  `:swap/received` is the hinge. At that point the exchange has accepted the
+  money as final and the buyer owes nothing more, whatever then becomes of the
+  conversion. `:swap/converting` and `:swap/delivered` are the store's own
+  treasury moving; `:swap/refunded`, `:swap/failed` and `:swap/expired` are the
+  operator's queue, and none of them is a debt the buyer is asked to settle a
+  second time."
+  :swap/awaiting-payment
+  :swap/confirming
+  :swap/received
+  :swap/converting
+  :swap/delivered
+  :swap/refunded
+  :swap/failed
+  :swap/expired)

@@ -10,9 +10,17 @@
 (def base-currencies
   "Currencies every deployment starts with. `:currency/scale` is how many
   decimal places one major unit is divided into: piconero for XMR, cents for
-  the fiat pair, satoshi for BTC."
+  the fiat pair, satoshi for BTC, wei for ETH.
+
+  A stablecoin is an ordinary crypto currency here and is quoted like any
+  other, because it is worth ABOUT a dollar and not a dollar. What chain a
+  currency settles on, and at what contract, is the wallet adapter's business
+  and is deliberately absent: USDC on two chains is one currency and two rails."
   [{:currency/id :xmr :currency/scale 12 :currency/kind :crypto :currency/symbol "XMR"}
    {:currency/id :btc :currency/scale 8 :currency/kind :crypto :currency/symbol "BTC"}
+   {:currency/id :eth :currency/scale 18 :currency/kind :crypto :currency/symbol "ETH"}
+   {:currency/id :usdt :currency/scale 6 :currency/kind :crypto :currency/symbol "USDT"}
+   {:currency/id :usdc :currency/scale 6 :currency/kind :crypto :currency/symbol "USDC"}
    {:currency/id :usd :currency/scale 2 :currency/kind :fiat :currency/symbol "$"}
    {:currency/id :eur :currency/scale 2 :currency/kind :fiat :currency/symbol "€"}
    {:currency/id :brl :currency/scale 2 :currency/kind :fiat :currency/symbol "R$"}])

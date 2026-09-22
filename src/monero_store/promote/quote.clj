@@ -19,13 +19,21 @@
   `:quote/max-spread-bps` is measured against the median, in basis points.
   `:quote/bounds` is a band, not a pricing opinion: it exists so a ticker that
   starts reporting a price in the wrong unit cannot sell a year of service for
-  a fraction of a cent."
+  a fraction of a cent.
+
+  A stablecoin's band is the TIGHTEST of them all rather than the loosest. Its
+  whole economic claim is that the number stays near one, so a reading outside
+  the band is the one case where refusing to sell is obviously right: either
+  the peg has broken or the source has, and a store cannot tell which."
   {:quote/min-sources 2
    :quote/max-spread-bps 500
    :quote/max-age-ms 300000
    :quote/lock-ms 900000
    :quote/bounds {[:xmr :usd] [20 5000]
-                  [:btc :usd] [1000 500000]}})
+                  [:btc :usd] [1000 500000]
+                  [:eth :usd] [100 50000]
+                  [:usdt :usd] [0.90 1.10]
+                  [:usdc :usd] [0.90 1.10]}})
 
 (defn with-bounds
   "`profile` with the [low high] band `pair`'s implied rate must fall inside.
